@@ -314,9 +314,11 @@ public partial class MainWindow : Window
         if ((response[1] & 0x80) != 0) throw new IOException($"Modbus exception code {response.ElementAtOrDefault(2):X2} для FC{function}.");
         if (response[1] != function) throw new IOException("Функция в ответе не совпадает с запросом.");
         int byteCount = response[2];
-        if (response.Length != 3 + byteCount)
-            throw new IOException(response.Length < 3 + byteCount
-                ? "Ответ обрезан: не хватает данных."
+        // RTU responses retain the two CRC bytes for validation; TCP responses do not include CRC.
+        int expectedResponseLength = 3 + byteCount + (IsTcp ? 0 : 2);
+        if (response.Length != expectedResponseLength)
+            throw new IOException(response.Length < expectedResponseLength
+                ? "Ответ обрезан: не хватает данных или CRC."
                 : "Ответ содержит лишние байты после поля данных.");
         if (function is 1 or 2)
         {
