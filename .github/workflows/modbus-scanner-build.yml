@@ -1,0 +1,33 @@
+name: Modbus Scanner Windows x64
+
+on:
+  push:
+    paths:
+      - "ModbusScanner/**"
+      - ".github/workflows/modbus-scanner-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Modbus Scanner
+        uses: actions/checkout@v4
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restore
+        run: dotnet restore ModbusScanner/ModbusScanner.csproj
+      - name: Publish Windows x64 single-file app
+        run: dotnet publish ModbusScanner/ModbusScanner.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/ModbusScanner
+      - name: Upload Modbus Scanner
+        uses: actions/upload-artifact@v4
+        with:
+          name: Modbus-Scanner-Windows-x64
+          path: artifacts/ModbusScanner/**
+          if-no-files-found: error
+          retention-days: 30
