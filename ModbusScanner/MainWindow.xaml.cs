@@ -544,7 +544,9 @@ public partial class MainWindow : Window
             for (int i = 0; i < values.Length; i++) { request[7 + i * 2] = (byte)(values[i] >> 8); request[8 + i * 2] = (byte)values[i]; }
         }
         var response = await ExchangeAsync(request, function, ct);
-        if (response.Length < 6 || response[0] != unit) throw new IOException("Некорректное подтверждение записи.");
+        if (response.Length < 2 || response[0] != unit) throw new IOException("Некорректное подтверждение записи: неверный Unit ID или слишком короткий ответ.");
+        // A Modbus TCP exception reply is only 3 bytes (Unit ID, function, exception code),
+        // so inspect it before enforcing the normal write-echo length.
         if ((response[1] & 0x80) != 0) throw new IOException($"Устройство отклонило запись: exception {response.ElementAtOrDefault(2):X2}.");
         if (response[1] != function) throw new IOException("Неверная функция в подтверждении записи.");
         int expectedResponseLength = IsTcp ? 6 : 8; // RTU includes two CRC bytes.
