@@ -773,12 +773,33 @@ public partial class MainWindow : Window
     {
         var dialog = new SaveFileDialog { Filter = "CSV UTF-8 (*.csv)|*.csv", FileName = "modbus-registers.csv" };
         if (dialog.ShowDialog() != true) return;
-        var sb = new StringBuilder("Address;Decimal;Hex;Binary;Interpreted;Description;Quality\r\n");
-        foreach (var row in _rows.OrderBy(r => r.Address))
-            sb.Append(row.Address).Append(';').Append(row.RawValue).Append(';').Append(row.HexValue).Append(';')
-              .Append(row.BinaryValue).Append(';').Append(row.DisplayValue).Append(';').Append('\"').Append(row.Description.Replace("\"", "\"\"")).Append('\"').Append(';').Append(row.Quality).Append("\r\n");
-        File.WriteAllText(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
-        Log($"Экспортировано {_rows.Count} строк в {dialog.FileName}");
+        try
+        {
+            var sb = new StringBuilder("Address;Decimal;Hex;Binary;Interpreted;Description;Quality\r\n");
+            foreach (var row in _rows.OrderBy(r => r.Address))
+            {
+                var fields = new[]
+                {
+                    row.Address.ToString(CultureInfo.InvariantCulture),
+                    row.RawValue.ToString(CultureInfo.InvariantCulture),
+                    row.HexValue,
+                    row.BinaryValue,
+                    row.DisplayValue,
+                    row.Description,
+                    row.Quality
+                };
+                sb.AppendLine(string.Join(";", fields.Select(CsvEscape)));
+            }
+            File.WriteAllText(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
+            Log($"Экспортировано {_rows.Count} строк в {dialog.FileName}");
+        }
+        catch (Exception ex) { Log("Ошибка экспорта CSV: " + ex.Message); }
+    }
+
+    private static string CsvEscape(string? value)
+    {
+        value ??= "";
+        return "\"" + value.Replace("\"", "\"\"").Replace("\r", " ").Replace("\n", " ") + "\"";
     }
 
     private void SortRows()
