@@ -496,7 +496,7 @@ public partial class MainWindow : Window
             throw new ArgumentOutOfRangeException(nameof(function), "Поддерживаются только FC05, FC06 и FC16 для записи.");
         if (values is null || values.Length == 0)
             throw new ArgumentException("Нужно указать хотя бы одно значение для записи.", nameof(values));
-        if (function is 5 or 6 && values.Length != 1)
+        if ((function is 5 or 6) && values.Length != 1)
             throw new ArgumentException("FC05 и FC06 записывают ровно одно значение.", nameof(values));
         if (function == 5 && values[0] is not (0 or 1))
             throw new ArgumentOutOfRangeException(nameof(values), "Для FC05 значение катушки должно быть 0 или 1.");
