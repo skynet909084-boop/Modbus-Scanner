@@ -17,6 +17,7 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<RegisterRow> _rows = new();
     private readonly object _serialGate = new();
+    private readonly SemaphoreSlim _tcpGate = new(1, 1);
     private SerialPort? _serial;
     private TcpClient? _tcp;
     private NetworkStream? _stream;
@@ -334,28 +335,35 @@ public partial class MainWindow : Window
         await EnsureConnectedAsync(ct);
         if (IsTcp)
         {
-            var stream = _stream ?? throw new IOException("TCP-поток не открыт.");
-            ushort tid = unchecked(++_transactionId);
-            // MBAP is 6 bytes, followed by Unit ID and the Modbus PDU.
-            byte[] frame = new byte[6 + pdu.Length];
-            frame[0] = (byte)(tid >> 8); frame[1] = (byte)tid;
-            frame[2] = 0; frame[3] = 0;
-            ushort len = (ushort)pdu.Length;
-            frame[4] = (byte)(len >> 8); frame[5] = (byte)len; frame[6] = pdu[0];
-            Array.Copy(pdu, 1, frame, 7, pdu.Length - 1);
-            await stream.WriteAsync(frame, ct);
-            byte[] header = new byte[7];
-            await ReadExactAsync(stream, header, ct);
-            int length = (header[4] << 8) | header[5];
-            if (header[0] != frame[0] || header[1] != frame[1] || header[2] != 0 || header[3] != 0 || length < 2 || length > 254)
-                throw new IOException("Некорректный MBAP заголовок.");
-            byte[] response = new byte[length];
-            response[0] = header[6];
-            // Read function and data after the Unit ID.
-            byte[] tail = new byte[length - 1];
-            await ReadExactAsync(stream, tail, ct);
-            Array.Copy(tail, 0, response, 1, tail.Length);
-            return response;
+            // A TCP stream has no message boundaries: serialize complete request/response
+            // exchanges so monitoring and manual reads cannot consume each other's replies.
+            await _tcpGate.WaitAsync(ct);
+            try
+            {
+                var stream = _stream ?? throw new IOException("TCP-поток не открыт.");
+                ushort tid = unchecked(++_transactionId);
+                // MBAP is 6 bytes, followed by Unit ID and the Modbus PDU.
+                byte[] frame = new byte[6 + pdu.Length];
+                frame[0] = (byte)(tid >> 8); frame[1] = (byte)tid;
+                frame[2] = 0; frame[3] = 0;
+                ushort len = (ushort)pdu.Length;
+                frame[4] = (byte)(len >> 8); frame[5] = (byte)len; frame[6] = pdu[0];
+                Array.Copy(pdu, 1, frame, 7, pdu.Length - 1);
+                await stream.WriteAsync(frame, ct);
+                byte[] header = new byte[7];
+                await ReadExactAsync(stream, header, ct);
+                int length = (header[4] << 8) | header[5];
+                if (header[0] != frame[0] || header[1] != frame[1] || header[2] != 0 || header[3] != 0 || length < 2 || length > 254)
+                    throw new IOException("Некорректный MBAP заголовок.");
+                byte[] response = new byte[length];
+                response[0] = header[6];
+                // Read function and data after the Unit ID.
+                byte[] tail = new byte[length - 1];
+                await ReadExactAsync(stream, tail, ct);
+                Array.Copy(tail, 0, response, 1, tail.Length);
+                return response;
+            }
+            finally { _tcpGate.Release(); }
         }
 
         return await Task.Run(() =>
