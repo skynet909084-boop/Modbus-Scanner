@@ -407,6 +407,10 @@ public partial class MainWindow : Window
                 else
                 {
                     var byteCount = ReadSerialByte(serial);
+                    if (byteCount > 250)
+                        throw new IOException($"Недопустимая длина данных RTU: {byteCount} байт (максимум 250).");
+                    if (function is 3 or 4 && (byteCount == 0 || (byteCount & 1) != 0))
+                        throw new IOException($"Недопустимая длина ответа RTU для FC{function}: {byteCount} байт.");
                     byte[] body = new byte[byteCount + 2];
                     for (int i = 0; i < body.Length; i++) body[i] = (byte)ReadSerialByte(serial);
                     answer = new byte[3 + body.Length];
