@@ -492,7 +492,10 @@ public partial class MainWindow : Window
         try
         {
             ushort address = ParseUShort(WriteAddressBox.Text, "Адрес Coil");
-            bool on = ParseUShort(WriteValueBox.Text, "Значение Coil") != 0;
+            ushort coilValue = ParseUShort(WriteValueBox.Text, "Значение Coil");
+            if (coilValue is not (0 or 1))
+                throw new ArgumentOutOfRangeException(nameof(WriteValueBox), "Для Coil укажите 0 (OFF) или 1 (ON).");
+            bool on = coilValue == 1;
             if (ConfirmWriteBox.IsChecked == true && MessageBox.Show($"Установить Coil {address} в {(on ? "ON" : "OFF")}?", "Подтверждение записи", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             await WriteAsync(GetUnit(), 5, address, new[] { (ushort)(on ? 1 : 0) }, CancellationToken.None);
             Log($"FC05: Coil {address} = {(on ? "ON" : "OFF")}.");
