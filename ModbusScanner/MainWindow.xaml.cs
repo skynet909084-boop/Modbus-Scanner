@@ -492,6 +492,13 @@ public partial class MainWindow : Window
 
     private async Task WriteAsync(byte unit, byte function, ushort address, ushort[] values, CancellationToken ct)
     {
+        if (function is not (5 or 6 or 16))
+            throw new ArgumentOutOfRangeException(nameof(function), "Поддерживаются только FC05, FC06 и FC16 для записи.");
+        if (values is null || values.Length == 0)
+            throw new ArgumentException("Нужно указать хотя бы одно значение для записи.", nameof(values));
+        int addressCount = function == 16 ? values.Length : 1;
+        if ((uint)address + (uint)addressCount > 65536)
+            throw new ArgumentOutOfRangeException(nameof(address), "Диапазон записи выходит за пределы адресов Modbus 0–65535.");
         byte[] request;
         if (function == 6 || function == 5)
         {
