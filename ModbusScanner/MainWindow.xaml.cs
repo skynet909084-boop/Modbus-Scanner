@@ -809,7 +809,7 @@ public partial class MainWindow : Window
         foreach (var row in ordered) _rows.Add(row);
     }
 
-    private byte GetUnit() => (byte)ParseInt(UnitBox.Text, 0, 247, "Unit ID");
+    private byte GetUnit() => (byte)ParseInt(UnitBox.Text, 1, 247, "Unit ID");
     private ushort GetStart() => ParseUShort(StartAddressBox.Text, "Стартовый адрес");
     private ushort GetQuantity() => (ushort)ParseInt(QuantityBox.Text, 1, 2000, "Количество");
     private static ushort ParseUShort(string text, string field)
