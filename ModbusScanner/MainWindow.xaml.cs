@@ -746,7 +746,7 @@ public partial class MainWindow : Window
                         finally { Interlocked.Increment(ref checkedCount); }
                     }
                     finally { gate.Release(); }
-                }, CancellationToken.None));
+                }, ct));
                 if (address == uint.MaxValue) break;
             }
             await Task.WhenAll(tasks);
