@@ -297,8 +297,16 @@ public partial class MainWindow : Window
 
     private async Task<ushort[]> ReadAsync(byte unit, byte function, ushort start, ushort quantity, CancellationToken ct)
     {
-        if (quantity is < 1 or > 125 && function is 3 or 4) throw new ArgumentOutOfRangeException(nameof(quantity), "FC03/04: допустимо 1–125 регистров.");
-        if (quantity is < 1 or > 2000 && function is 1 or 2) throw new ArgumentOutOfRangeException(nameof(quantity), "FC01/02: допустимо 1–2000 бит.");
+        if (function is not (1 or 2 or 3 or 4))
+            throw new ArgumentOutOfRangeException(nameof(function), "Поддерживаются только FC01–FC04 для чтения.");
+        if (quantity == 0)
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Количество значений должно быть больше нуля.");
+        if ((uint)start + quantity > 65536)
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Диапазон чтения выходит за пределы адресов Modbus 0–65535.");
+        if (quantity > 125 && function is 3 or 4)
+            throw new ArgumentOutOfRangeException(nameof(quantity), "FC03/04: допустимо 1–125 регистров.");
+        if (quantity > 2000 && function is 1 or 2)
+            throw new ArgumentOutOfRangeException(nameof(quantity), "FC01/02: допустимо 1–2000 бит.");
         byte[] request = { unit, function, (byte)(start >> 8), (byte)start, (byte)(quantity >> 8), (byte)quantity };
         var response = await ExchangeAsync(request, function, ct);
         if (response.Length < 3 || response[0] != unit) throw new IOException("Ответ Modbus имеет неверный адрес или длину.");
@@ -308,6 +316,9 @@ public partial class MainWindow : Window
         if (response.Length < 3 + byteCount) throw new IOException("Ответ обрезан: не хватает данных.");
         if (function is 1 or 2)
         {
+            int expectedByteCount = (quantity + 7) / 8;
+            if (byteCount != expectedByteCount)
+                throw new IOException($"Неожиданная длина битовых данных: {byteCount} байт; ожидалось {expectedByteCount}.");
             var bits = new ushort[quantity];
             for (int i = 0; i < quantity; i++) bits[i] = (ushort)((response[3 + i / 8] >> (i % 8)) & 1);
             return bits;
