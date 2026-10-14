@@ -11,7 +11,9 @@ Independent Windows x64 diagnostic utility for Modbus RTU (USB–RS-485) and Mod
 - RTU CRC validation and Modbus TCP MBAP framing.
 - Range scan with recursive subdivision when a range returns an exception.
 - RTU discovery across common baud rates and serial formats, and Slave IDs 1–247.
-- Register table, HEX/BIN views, quality/status, editable descriptions, and CSV export.\n- Typed register interpretation: UInt16, Int16, UInt32, Int32, Float32 with ABCD or CDAB word order. 32-bit interpretations combine the selected register with the next address.\n- Write acknowledgements are checked for the expected address and echoed value/quantity (including RTU CRC bytes).
+- Register table, HEX/BIN views, quality/status, editable descriptions, and CSV export.
+- Typed register interpretation: UInt16, Int16, UInt32, Int32, Float32 with ABCD or CDAB word order. 32-bit interpretations combine the selected register with the next address.
+- Write acknowledgements are checked for the expected address and echoed value/quantity (including RTU CRC bytes).
 
 ## Important limitations
 
