@@ -358,12 +358,16 @@ public partial class MainWindow : Window
                 int length = (header[4] << 8) | header[5];
                 if (header[0] != frame[0] || header[1] != frame[1] || header[2] != 0 || header[3] != 0 || length < 2 || length > 254)
                     throw new IOException("Некорректный MBAP заголовок.");
+                if (header[6] != pdu[0])
+                    throw new IOException($"Ответ пришёл от Unit ID {header[6]}, ожидался {pdu[0]}.");
                 byte[] response = new byte[length];
                 response[0] = header[6];
                 // Read function and data after the Unit ID.
                 byte[] tail = new byte[length - 1];
                 await ReadExactAsync(stream, tail, ct);
                 Array.Copy(tail, 0, response, 1, tail.Length);
+                if (response.Length < 2 || (response[1] != function && response[1] != (byte)(function | 0x80)))
+                    throw new IOException("Функция в ответе Modbus TCP не совпадает с запросом.");
                 return response;
             }
             finally { _tcpGate.Release(); }
