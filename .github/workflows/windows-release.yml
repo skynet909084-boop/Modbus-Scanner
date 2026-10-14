@@ -1,0 +1,49 @@
+name: Windows Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag (for example v1.0.0)"
+        required: true
+        default: "v1.0.0"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag_name || github.ref }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish Windows x64 single-file app
+        shell: pwsh
+        run: |
+          dotnet publish .\ModbusScanner\ModbusScanner.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\publish
+
+      - name: Package release ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path .\publish\* -DestinationPath .\Modbus-Scanner-Windows-x64.zip -Force
+          Get-FileHash .\Modbus-Scanner-Windows-x64.zip -Algorithm SHA256 | Format-List
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: Modbus Scanner ${{ github.event.inputs.tag_name || github.ref_name }}
+          generate_release_notes: true
+          make_latest: true
+          files: Modbus-Scanner-Windows-x64.zip
