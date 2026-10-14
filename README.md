@@ -10,7 +10,11 @@ Open `ModbusScanner/ModbusScanner.csproj` with Visual Studio 2022 / .NET 8, or r
 dotnet publish .\ModbusScanner\ModbusScanner.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
-A Windows x64 single-file build is also produced automatically by GitHub Actions when changes are pushed to `main`. Open the repository's **Actions** tab and download the `Modbus-Scanner-Windows-x64` artifact from a successful run.
+A Windows x64 build is produced automatically by GitHub Actions when changes are pushed to `main`. These **Actions artifacts are temporary** and expire after the retention period.
+
+- [Download a permanent packaged release](https://github.com/skynet909084-boop/Modbus-Scanner/releases) when a version is published.
+- [Open Actions builds](https://github.com/skynet909084-boop/Modbus-Scanner/actions) to download a recent test build.
+- For Modbus register addressing, enter the **zero-based protocol address** (0–65535), not the 4xxxx/3xxxx reference notation. For example, holding register reference 40001 usually corresponds to protocol address 0; confirm the convention in your device manual.
 
 ## Features
 
