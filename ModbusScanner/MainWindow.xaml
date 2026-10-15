@@ -48,14 +48,14 @@
    <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="#152333"/><Setter Property="Foreground" Value="#AFC4D5"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="{x:Type ComboBox}">
-   <Setter Property="Background" Value="#142538"/><Setter Property="Foreground" Value="#E6F3FF"/>
+   <Setter Property="Background" Value="#F1F6FB"/><Setter Property="Foreground" Value="#172638"/>
    <Setter Property="BorderBrush" Value="#34546A"/><Setter Property="BorderThickness" Value="1"/>
    <Setter Property="Padding" Value="5,3"/><Setter Property="Margin" Value="3,2"/>
    <Setter Property="MinHeight" Value="29"/>
-   <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#AFC4D5"/></Trigger></Style.Triggers>
+   <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#586B7A"/><Setter Property="Background" Value="#DCE5EC"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="{x:Type ComboBoxItem}">
-   <Setter Property="Background" Value="#142538"/><Setter Property="Foreground" Value="#E6F3FF"/>
+   <Setter Property="Background" Value="#F1F6FB"/><Setter Property="Foreground" Value="#172638"/>
    <Setter Property="Padding" Value="8,5"/>
    <Style.Triggers>
     <Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#245366"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger>
