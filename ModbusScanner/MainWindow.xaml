@@ -121,6 +121,7 @@
     <StackPanel DockPanel.Dock="Left">
      <TextBlock Text="MODBUS SCANNER" FontSize="25" FontWeight="Bold" FontFamily="Segoe UI" Foreground="#FF29E6D2"/>
      <TextBlock Text="INDUSTRIAL COMMUNICATION SUITE   //   RTU · RS-485 · MODBUS TCP" Foreground="#FFB3C5D5" Margin="0,3,0,0"/>
+     <TextBlock Text="Разработчик / Контакт: skynet909084@gmail.com" Foreground="#FFE6F3FF" FontSize="12" Margin="0,4,0,0"/>
     </StackPanel>
     <TextBlock x:Name="StatusText" DockPanel.Dock="Right" Text="Не подключено" VerticalAlignment="Center" FontSize="14" Foreground="#FFF0B85B"/>
    </DockPanel>
