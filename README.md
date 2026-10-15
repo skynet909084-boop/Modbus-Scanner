@@ -1,6 +1,6 @@
 # Modbus Scanner
 
-Standalone Windows x64 Modbus RTU (RS-485/serial) and Modbus TCP diagnostic application.
+Standalone Windows x64 Modbus RTU (RS-485/serial) and Modbus TCP diagnostic application. Current update: **v1.0.2**.
 
 ## Build
 
@@ -15,6 +15,13 @@ A Windows x64 build is produced automatically by GitHub Actions when changes are
 - [Download a permanent packaged release](https://github.com/skynet909084-boop/Modbus-Scanner/releases) when a version is published.
 - [Open Actions builds](https://github.com/skynet909084-boop/Modbus-Scanner/actions) to download a recent test build.
 - For Modbus register addressing, enter the **zero-based protocol address** (0–65535), not the 4xxxx/3xxxx reference notation. For example, holding register reference 40001 usually corresponds to protocol address 0; confirm the convention in your device manual.
+
+## What changed in v1.0.2
+
+- Improved contrast of labels and muted text for easier reading.
+- Clearer hover and selection states for tabs, drop-down lists, and result rows.
+- More legible text in the register table and disabled controls.
+- Modbus scanning and communication behavior unchanged in this visual update.
 
 ## Features
 
