@@ -10,7 +10,11 @@
   <SolidColorBrush x:Key="PanelRaisedBrush" Color="#19283A"/>
   <SolidColorBrush x:Key="LineBrush" Color="#2A4358"/>
   <SolidColorBrush x:Key="TextBrush" Color="#E6F3FF"/>
-  <SolidColorBrush x:Key="MutedBrush" Color="#8FA8BE"/>
+  <SolidColorBrush x:Key="MutedBrush" Color="#B3C5D5"/>
+  <Style TargetType="{x:Type TextBlock}">
+   <Setter Property="Foreground" Value="#FFDCEAF4"/>
+   <Setter Property="FontSize" Value="13"/>
+  </Style>
   <SolidColorBrush x:Key="AccentBrush" Color="#29E6D2"/>
   <Style TargetType="{x:Type Button}">
    <Setter Property="Background" Value="#20394B"/>
@@ -30,7 +34,7 @@
      <ControlTemplate.Triggers>
       <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="#28546A"/><Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#29E6D2"/></Trigger>
       <Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="#176D70"/></Trigger>
-      <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45"/></Trigger>
+      <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.65"/></Trigger>
      </ControlTemplate.Triggers>
     </ControlTemplate></Setter.Value>
    </Setter>
@@ -41,17 +45,22 @@
    <Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="7,5"/>
    <Setter Property="Margin" Value="3,2"/><Setter Property="VerticalContentAlignment" Value="Center"/>
    <Setter Property="SelectionBrush" Value="#286F79"/>
+   <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="#152333"/><Setter Property="Foreground" Value="#AFC4D5"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="{x:Type ComboBox}">
    <Setter Property="Background" Value="#142538"/><Setter Property="Foreground" Value="#E6F3FF"/>
    <Setter Property="BorderBrush" Value="#34546A"/><Setter Property="BorderThickness" Value="1"/>
    <Setter Property="Padding" Value="5,3"/><Setter Property="Margin" Value="3,2"/>
    <Setter Property="MinHeight" Value="29"/>
+   <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#AFC4D5"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="{x:Type ComboBoxItem}">
    <Setter Property="Background" Value="#142538"/><Setter Property="Foreground" Value="#E6F3FF"/>
    <Setter Property="Padding" Value="8,5"/>
-   <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#245366"/></Trigger></Style.Triggers>
+   <Style.Triggers>
+    <Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#245366"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger>
+    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#176B72"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger>
+   </Style.Triggers>
   </Style>
   <Style TargetType="{x:Type CheckBox}">
    <Setter Property="Foreground" Value="#B9D1E2"/><Setter Property="Margin" Value="4,3"/>
@@ -67,7 +76,7 @@
    <Setter Property="FontWeight" Value="SemiBold"/>
    <Style.Triggers>
     <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="#29E6D2"/><Setter Property="Background" Value="#203C4D"/></Trigger>
-    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="#FFFFFF"/></Trigger>
+    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="#FFFFFF"/><Setter Property="Background" Value="#254357"/></Trigger>
    </Style.Triggers>
   </Style>
   <Style TargetType="{x:Type DataGrid}">
@@ -84,12 +93,15 @@
    <Setter Property="Padding" Value="9,8"/><Setter Property="FontWeight" Value="Bold"/>
   </Style>
   <Style TargetType="{x:Type DataGridCell}">
-   <Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="5,3"/>
+   <Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="5,3"/><Setter Property="Foreground" Value="#FFDCECF7"/>
    <Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#176B72"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="{x:Type DataGridRow}">
-   <Setter Property="MinHeight" Value="29"/>
-   <Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#174854"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger></Style.Triggers>
+   <Setter Property="MinHeight" Value="29"/><Setter Property="Foreground" Value="#FFDCECF7"/>
+   <Style.Triggers>
+    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#174854"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger>
+    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1B3447"/><Setter Property="Foreground" Value="#FFF4FAFF"/></Trigger>
+   </Style.Triggers>
   </Style>
   <Style TargetType="{x:Type ListBox}">
    <Setter Property="Background" Value="#0B1420"/><Setter Property="Foreground" Value="#CDE1EF"/>
@@ -98,7 +110,7 @@
   </Style>
   <Style TargetType="{x:Type ListBoxItem}">
    <Setter Property="Padding" Value="6,4"/>
-   <Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#176B72"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D3447"/></Trigger></Style.Triggers>
+   <Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#176B72"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D3447"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger></Style.Triggers>
   </Style>
  </Window.Resources>
 
@@ -108,7 +120,7 @@
    <DockPanel>
     <StackPanel DockPanel.Dock="Left">
      <TextBlock Text="MODBUS SCANNER" FontSize="25" FontWeight="Bold" FontFamily="Segoe UI" Foreground="#FF29E6D2"/>
-     <TextBlock Text="INDUSTRIAL COMMUNICATION SUITE   //   RTU · RS-485 · MODBUS TCP" Foreground="#FF8FA8BE" Margin="0,3,0,0"/>
+     <TextBlock Text="INDUSTRIAL COMMUNICATION SUITE   //   RTU · RS-485 · MODBUS TCP" Foreground="#FFB3C5D5" Margin="0,3,0,0"/>
     </StackPanel>
     <TextBlock x:Name="StatusText" DockPanel.Dock="Right" Text="Не подключено" VerticalAlignment="Center" FontSize="14" Foreground="#FFF0B85B"/>
    </DockPanel>
@@ -207,7 +219,7 @@
           <Style.Triggers>
            <DataTrigger Binding="{Binding Quality}" Value="OK"><Setter Property="Foreground" Value="#FF29E6A0"/></DataTrigger>
            <DataTrigger Binding="{Binding Quality}" Value="Ошибка"><Setter Property="Foreground" Value="#FFFF7373"/></DataTrigger>
-           <DataTrigger Binding="{Binding Quality}" Value="—"><Setter Property="Foreground" Value="#FF8FA8BE"/></DataTrigger>
+           <DataTrigger Binding="{Binding Quality}" Value="—"><Setter Property="Foreground" Value="#FFB3C5D5"/></DataTrigger>
           </Style.Triggers>
          </Style>
         </DataGridTextColumn.CellStyle>
