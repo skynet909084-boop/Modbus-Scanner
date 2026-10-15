@@ -1,34 +1,49 @@
 # Modbus Scanner
 
-Standalone Windows x64 Modbus RTU (RS-485/serial) and Modbus TCP diagnostic application. Current update: **v1.0.2**.
+**Modbus Scanner v1.0.3** — самостоятельная диагностическая программа для **Windows x64**, предназначенная для работы с устройствами **Modbus RTU (RS-485 / COM)** и **Modbus TCP**.
 
-## Build
+**Разработчик / контакт:** skynet909084@gmail.com
 
-Open `ModbusScanner/ModbusScanner.csproj` with Visual Studio 2022 / .NET 8, or run:
+## Скачать
+
+**[Скачать Modbus Scanner v1.0.3 (Windows x64)](https://github.com/skynet909084-boop/Modbus-Scanner/releases/tag/v1.0.3)**
+
+На странице релиза откройте **Assets** и скачайте архив `Modbus-Scanner-Windows-x64.zip`. Распакуйте его и запустите `ModbusScanner.exe`. Сборка публикуется как автономное приложение для Windows x64; отдельная установка .NET обычно не требуется.
+
+## Возможности
+
+- Подключение по **Modbus RTU** через последовательный порт / USB–RS-485 и по **Modbus TCP**.
+- Чтение катушек, дискретных входов, holding registers и input registers (**FC01–FC04**).
+- Запись одной катушки, одного регистра и нескольких регистров (**FC05, FC06, FC16**) с подтверждением перед записью.
+- Поиск устройств Modbus RTU, сканирование диапазонов регистров и диагностика соединения.
+- Мониторинг значений, таблица регистров, представление HEX/BIN.
+- Интерпретация значений **UInt16, Int16, UInt32, Int32, Float32**, поддержка порядка слов ABCD/CDAB.
+- Экспорт результатов в CSV и сохранение профилей подключения.
+
+## Что нового в v1.0.3
+
+- Исправлена читаемость выпадающих списков: контрастный текст виден **без наведения мыши**.
+- Улучшено отображение выделенных и неактивных пунктов списков.
+- Под заголовком приложения указан контакт разработчика: **skynet909084@gmail.com**.
+- Номер версии приложения обновлён до **1.0.3**.
+- Логика обмена по Modbus в этом обновлении не изменялась.
+
+## Подключение и адреса регистров
+
+Используйте **нулевую адресацию протокола** (0–65535), а не обозначения вида 40001/30001 из некоторых руководств. Например, holding register 40001 обычно соответствует адресу 0, но проверьте правила адресации конкретного устройства.
+
+**Внимание:** запись в регистры работающего оборудования может изменить уставки и состояние выходов. Перед записью проверяйте адрес и значение; не отключайте подтверждение без необходимости.
+
+Автопоиск RTU первоначально проверяет FC03 по адресу 0. Устройства, не поддерживающие такой запрос, могут не обнаруживаться автоматически.
+
+## Сборка из исходников
+
+Требуются Visual Studio 2022 или .NET 8 SDK с поддержкой сборки WPF под Windows.
 
 ```powershell
-dotnet publish .\ModbusScanner\ModbusScanner.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish .\ModbusScanner\ModbusScanner.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-A Windows x64 build is produced automatically by GitHub Actions when changes are pushed to `main`. These **Actions artifacts are temporary** and expire after the retention period.
+Сборки GitHub Actions доступны в разделе [Actions](https://github.com/skynet909084-boop/Modbus-Scanner/actions). Артефакты Actions временные; для скачивания опубликованных версий используйте [Releases](https://github.com/skynet909084-boop/Modbus-Scanner/releases).
 
-- [Download a permanent packaged release](https://github.com/skynet909084-boop/Modbus-Scanner/releases) when a version is published.
-- [Open Actions builds](https://github.com/skynet909084-boop/Modbus-Scanner/actions) to download a recent test build.
-- For Modbus register addressing, enter the **zero-based protocol address** (0–65535), not the 4xxxx/3xxxx reference notation. For example, holding register reference 40001 usually corresponds to protocol address 0; confirm the convention in your device manual.
-
-## What changed in v1.0.2
-
-- Improved contrast of labels and muted text for easier reading.
-- Clearer hover and selection states for tabs, drop-down lists, and result rows.
-- More legible text in the register table and disabled controls.
-- Modbus scanning and communication behavior unchanged in this visual update.
-
-## Features
-
-- Modbus RTU and Modbus TCP connections
-- Register/coil reads and supported single/multiple writes
-- RTU device discovery and TCP endpoint scanning
-- Continuous polling, register interpretation, CSV export, saved connection profiles
-- Dark high-contrast operator UI
-
-See [application README](ModbusScanner/README.md) for more details.
+Подробности и ограничения реализации: [ModbusScanner/README.md](ModbusScanner/README.md).
