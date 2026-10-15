@@ -48,14 +48,14 @@
    <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="#152333"/><Setter Property="Foreground" Value="#AFC4D5"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="{x:Type ComboBox}">
-   <Setter Property="Background" Value="#142538"/><Setter Property="Foreground" Value="#E6F3FF"/>
+   <Setter Property="Background" Value="#F1F6FB"/><Setter Property="Foreground" Value="#172638"/>
    <Setter Property="BorderBrush" Value="#34546A"/><Setter Property="BorderThickness" Value="1"/>
    <Setter Property="Padding" Value="5,3"/><Setter Property="Margin" Value="3,2"/>
    <Setter Property="MinHeight" Value="29"/>
-   <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#AFC4D5"/></Trigger></Style.Triggers>
+   <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="#586B7A"/><Setter Property="Background" Value="#DCE5EC"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="{x:Type ComboBoxItem}">
-   <Setter Property="Background" Value="#142538"/><Setter Property="Foreground" Value="#E6F3FF"/>
+   <Setter Property="Background" Value="#F1F6FB"/><Setter Property="Foreground" Value="#172638"/>
    <Setter Property="Padding" Value="8,5"/>
    <Style.Triggers>
     <Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#245366"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger>
@@ -121,6 +121,7 @@
     <StackPanel DockPanel.Dock="Left">
      <TextBlock Text="MODBUS SCANNER" FontSize="25" FontWeight="Bold" FontFamily="Segoe UI" Foreground="#FF29E6D2"/>
      <TextBlock Text="INDUSTRIAL COMMUNICATION SUITE   //   RTU · RS-485 · MODBUS TCP" Foreground="#FFB3C5D5" Margin="0,3,0,0"/>
+     <TextBlock Text="Разработчик / Контакт: skynet909084@gmail.com" Foreground="#FFE6F3FF" FontSize="12" Margin="0,4,0,0"/>
     </StackPanel>
     <TextBlock x:Name="StatusText" DockPanel.Dock="Right" Text="Не подключено" VerticalAlignment="Center" FontSize="14" Foreground="#FFF0B85B"/>
    </DockPanel>
