@@ -219,7 +219,9 @@ public partial class MainWindow : Window
                 case System.Windows.Controls.HeaderedItemsControl headeredItems: headeredItems.Header = value; break;
             }
         }
-        if (_simulator is not null) SimulatorButton.Content = UiText("Остановить TCP симулятор");
+        SimulatorButton.Content = _simulator is not null
+            ? UiText("Остановить TCP симулятор")
+            : UiText("Запустить TCP симулятор");
         if (EnglishStatusText.ContainsKey(StatusText.Text) || EnglishStatusText.ContainsValue(StatusText.Text))
         {
             var original = EnglishStatusText.FirstOrDefault(pair => pair.Value == StatusText.Text).Key ?? StatusText.Text;
