@@ -30,3 +30,4 @@ Local command:
 ~~~powershell
 dotnet publish ModbusScanner/ModbusScanner.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/ModbusScanner
 ~~~
+

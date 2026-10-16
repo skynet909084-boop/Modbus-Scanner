@@ -28,6 +28,8 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Run production regression checks
+        run: dotnet run --project ModbusScanner.Tests/ModbusScanner.Tests.csproj -c Release
       - name: Publish Windows x64 single-file app
         shell: pwsh
         run: |
@@ -47,3 +49,4 @@ jobs:
           generate_release_notes: true
           make_latest: true
           files: Modbus-Scanner-Windows-x64.zip
+

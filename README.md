@@ -47,3 +47,4 @@ dotnet publish .\ModbusScanner\ModbusScanner.csproj -c Release -r win-x64 --self
 Сборки GitHub Actions доступны в разделе [Actions](https://github.com/skynet909084-boop/Modbus-Scanner/actions). Артефакты Actions временные; для скачивания опубликованных версий используйте [Releases](https://github.com/skynet909084-boop/Modbus-Scanner/releases).
 
 Подробности и ограничения реализации: [ModbusScanner/README.md](ModbusScanner/README.md).
+
