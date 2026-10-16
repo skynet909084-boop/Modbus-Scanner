@@ -72,6 +72,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<DataGridColumn, string> _originalColumnHeaders = new();
     private static readonly Dictionary<string, string> EnglishLabels = new(StringComparer.Ordinal)
     {
+        ["Быстрый старт: для безопасной проверки без оборудования запустите TCP-симулятор, выберите TCP, Host 127.0.0.1, порт 1502, Unit ID 1, FC03, адрес 0 и количество 10. Нажмите «Подключить / проверить», затем «Читать диапазон». Запись в реальное оборудование не требуется."]="Quick start: to test safely without hardware, start the TCP simulator, select TCP, host 127.0.0.1, port 1502, Unit ID 1, FC03, address 0 and quantity 10. Select Connect / test, then Read range. No writing to real equipment is required.",
         ["Разрешить запись"]="Enable writing",
         ["Продолжить остановленный поиск (в текущем сеансе)"]="Resume interrupted scan (this session)",
         ["К записи FC16"]="FC16 write",
