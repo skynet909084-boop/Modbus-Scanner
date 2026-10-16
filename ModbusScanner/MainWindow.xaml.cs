@@ -29,6 +29,13 @@ public partial class MainWindow : Window
             {
                 await _simulator.DisposeAsync();
                 _simulator = null;
+                // Closing the test server invalidates an existing connection to its loopback port.
+                if (IsTcp && HostBox.Text.Trim() is "127.0.0.1" or "localhost" && PortBox.Text.Trim() == "1502")
+                {
+                    Disconnect();
+                    SetStatusText("Нет подтверждённой связи");
+                    StatusText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+                }
                 SimulatorButton.Content = UiText("Запустить TCP симулятор");
                 Log("Тестовый TCP симулятор остановлен.");
                 return;
