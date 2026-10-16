@@ -800,9 +800,14 @@ public partial class MainWindow : Window
         if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите текущую операцию.");return;}
         try
         {
-            var values = await ReadAsync(GetUnit(), (byte)(FunctionBox.SelectedIndex + 1), GetStart(), GetQuantity(), CancellationToken.None);
-            ApplyReadValues(GetStart(), values, (byte)(FunctionBox.SelectedIndex + 1));
-            Log($"Прочитано {values.Length} значений с адреса {GetStart()} (FC{FunctionBox.SelectedIndex + 1}).");
+            // Capture the requested range before awaiting: the user may edit controls mid-request.
+            byte unit = GetUnit();
+            byte function = (byte)(FunctionBox.SelectedIndex + 1);
+            ushort start = GetStart();
+            ushort quantity = GetQuantity();
+            var values = await ReadAsync(unit, function, start, quantity, CancellationToken.None);
+            ApplyReadValues(start, values, function);
+            Log($"Прочитано {values.Length} значений с адреса {start} (FC{function}).");
             StatusText.Text = UiText($"Прочитано: {values.Length}", $"Read: {values.Length}");
             StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
         }
