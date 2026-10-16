@@ -1121,9 +1121,13 @@ public partial class MainWindow : Window
             .ToList();
         const int mapLimit = 150;
         var hosts = allHosts.Take(mapLimit).ToList();
+        int modbusCount = allHosts.Count(item => item.Contains("502 (", StringComparison.Ordinal));
+        int cameraCount = allHosts.Count(item => item.Contains("554 (", StringComparison.Ordinal));
         const double width = 900, cardWidth = 250, cardHeight = 74;
         LanMapCanvas.Width = width;
         double y = 12;
+        AddMapCard($"Устройств: {allHosts.Count}", $"Возможный Modbus: {modbusCount} · RTSP: {cameraCount}", 325, y, 250, 68, Brushes.DarkSlateBlue);
+        y += 90;
         if (allHosts.Count > mapLimit)
         {
             AddMapCard($"Показано {mapLimit} из {allHosts.Count}", "Остальные устройства доступны в списке и CSV", 325, y, 250, 68, Brushes.DarkSlateBlue);
