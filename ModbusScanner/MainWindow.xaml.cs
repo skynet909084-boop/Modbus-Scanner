@@ -872,7 +872,15 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             RecordExchange(timer.Elapsed.TotalMilliseconds, ex);
-            if (ex is not ModbusDeviceException && ex is not InvalidOperationException) Disconnect();
+            if (ex is not ModbusDeviceException && ex is not InvalidOperationException)
+            {
+                Disconnect();
+                if (_scanCts is null)
+                {
+                    SetStatusText("Нет подтверждённой связи");
+                    StatusText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+                }
+            }
             throw;
         }
         finally { if(_scanCts==null)SetBusy(false); _operationGate.Release(); }
