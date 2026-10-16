@@ -320,6 +320,20 @@
         <TabItem Header="Список устройств">
           <ListBox x:Name="LanResultsList" MinHeight="200" FontFamily="Consolas" SelectionChanged="LanResultsList_SelectionChanged"/>
         </TabItem>
+        <TabItem Header="Диагностика сети">
+          <StackPanel Margin="8">
+            <TextBlock Text="Ping и трассировка IPv4" FontWeight="Bold" FontSize="16"/>
+            <WrapPanel Margin="0,8,0,8">
+              <TextBlock Text="Адрес" VerticalAlignment="Center"/>
+              <TextBox x:Name="DiagHostBox" Width="160" Text="192.168.1.1"/>
+              <Button Content="Ping × 4" Click="DiagnosePing_Click"/>
+              <Button Content="Трассировка" Click="DiagnoseTrace_Click"/>
+              <Button Content="Остановить" Click="StopDiagnosis_Click"/>
+            </WrapPanel>
+            <TextBlock Text="Потери и задержки показывают симптомы, но не доказывают неисправность кабеля. Промежуточные маршрутизаторы могут не отвечать на ICMP." TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <TextBox x:Name="DiagnosisOutputBox" FontFamily="Consolas" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MinHeight="250" MaxHeight="550" AcceptsReturn="True"/>
+          </StackPanel>
+        </TabItem>
         <TabItem Header="Карта сети">
           <DockPanel Margin="8">
             <StackPanel DockPanel.Dock="Top">
