@@ -18,6 +18,8 @@ jobs:
         run: dotnet restore ModbusScanner/ModbusScanner.csproj
       - name: Build Release x64
         run: dotnet build ModbusScanner/ModbusScanner.csproj -c Release -p:Platform=x64 --no-restore
+      - name: Test local Modbus TCP simulator
+        run: dotnet run --project SimulatorSmokeTests/SimulatorSmokeTests.csproj -c Release
       - name: Publish portable Windows x64
         run: dotnet publish ModbusScanner/ModbusScanner.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:PublishSingleFile=true -o out
       - name: Upload validation artifact
