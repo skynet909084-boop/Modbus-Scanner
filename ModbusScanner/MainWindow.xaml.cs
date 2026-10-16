@@ -29,14 +29,14 @@ public partial class MainWindow : Window
             {
                 await _simulator.DisposeAsync();
                 _simulator = null;
-                SimulatorButton.Content = "Запустить TCP симулятор";
+                SimulatorButton.Content = UiText("Запустить TCP симулятор");
                 Log("Тестовый TCP симулятор остановлен.");
                 return;
             }
             var simulator = new ModbusTcpSimulator(1502);
             simulator.Start();
             _simulator = simulator;
-            SimulatorButton.Content = "Остановить TCP симулятор";
+            SimulatorButton.Content = UiText("Остановить TCP симулятор");
             Log("Тестовый Modbus TCP сервер: 127.0.0.1:1502. Для подключения выберите TCP, Host 127.0.0.1, Port 1502.");
         }
         catch (Exception ex) { Log("Симулятор TCP: " + ex.Message); }
@@ -111,7 +111,7 @@ public partial class MainWindow : Window
         ["Автопоиск RTU"]="RTU auto discovery", ["Сканировать регистры"]="Scan registers",
         ["Остановить"]="Stop", ["Экспорт CSV"]="Export CSV", ["▶ Мониторинг"]="▶ Monitor",
         ["■ Стоп"]="■ Stop", ["Бит = 1"]="Bit = 1", ["Бит = 0"]="Bit = 0",
-        ["Запустить TCP симулятор"]="Start TCP simulator", ["Экспорт карты JSON"]="Export JSON map",
+        ["Запустить TCP симулятор"]="Start TCP simulator", ["Остановить TCP симулятор"]="Stop TCP simulator", ["Экспорт карты JSON"]="Export JSON map",
         ["Импорт карты JSON"]="Import JSON map", ["Записать 32-бит (FC16)"]="Write 32-bit (FC16)",
         ["Записать регистр (FC06)"]="Write register (FC06)",
         ["Записать несколько (FC16)"]="Write multiple (FC16)",
@@ -179,6 +179,8 @@ public partial class MainWindow : Window
             if (child is DependencyObject element) CaptureLabels(element);
     }
 
+    private string UiText(string russian) => LanguageBox?.SelectedItem is ComboBoxItem { Tag: "en" } && EnglishLabels.TryGetValue(russian, out var english) ? english : russian;
+
     private void ApplyLanguage(string language)
     {
         foreach (var item in _originalLabels)
@@ -195,6 +197,7 @@ public partial class MainWindow : Window
                 case System.Windows.Controls.HeaderedItemsControl headeredItems: headeredItems.Header = value; break;
             }
         }
+        if (_simulator is not null) SimulatorButton.Content = UiText("Остановить TCP симулятор");
     }
 
     private static readonly Dictionary<string, string> EnglishRuntimeMessages = new(StringComparer.Ordinal)
