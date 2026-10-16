@@ -222,12 +222,37 @@ public partial class MainWindow : Window
         SimulatorButton.Content = _simulator is not null
             ? UiText("Остановить TCP симулятор")
             : UiText("Запустить TCP симулятор");
-        if (EnglishStatusText.ContainsKey(StatusText.Text) || EnglishStatusText.ContainsValue(StatusText.Text))
+        string currentStatus = StatusText.Text;
+        string originalStatus = EnglishStatusText.FirstOrDefault(pair => pair.Value == currentStatus).Key ?? currentStatus;
+        if (EnglishStatusText.ContainsKey(originalStatus))
+            SetStatusText(originalStatus);
+        else
         {
-            var original = EnglishStatusText.FirstOrDefault(pair => pair.Value == StatusText.Text).Key ?? StatusText.Text;
-            SetStatusText(original);
+            // Preserve live operation details when switching between Russian and English.
+            foreach (var pair in LiveStatusPrefixes)
+            {
+                if (currentStatus.StartsWith(pair.Key, StringComparison.Ordinal))
+                {
+                    StatusText.Text = language == "en" ? pair.Value + currentStatus[pair.Key.Length..] : currentStatus;
+                    break;
+                }
+                if (currentStatus.StartsWith(pair.Value, StringComparison.Ordinal))
+                {
+                    StatusText.Text = language == "ru" ? pair.Key + currentStatus[pair.Value.Length..] : currentStatus;
+                    break;
+                }
+            }
         }
     }
+
+    private static readonly Dictionary<string, string> LiveStatusPrefixes = new(StringComparer.Ordinal)
+    {
+        ["Связь подтверждена · Unit "]="Connection verified · Unit ",
+        ["Мониторинг · OK · "]="Monitoring · OK · ",
+        ["Прочитано: "]="Read: ",
+        ["IP-поиск "]="IP scan ",
+        ["RTU "]="RTU ",
+    };
 
     private static readonly Dictionary<string, string> EnglishStatusText = new(StringComparer.Ordinal)
     {
