@@ -6,8 +6,10 @@ on:
       tag_name:
         description: "Release tag (for example v1.0.0)"
         required: true
-        default: "v1.0.1"
+        default: "v1.1.0"
   push:
+    branches: [main]
+    paths: ["ModbusScanner/ModbusScanner.csproj"]
     tags:
       - "v*"
 
@@ -28,6 +30,17 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Resolve and verify release version
+        id: version
+        shell: pwsh
+        env:
+          REQUESTED_TAG: ${{ github.event.inputs.tag_name }}
+        run: |
+          [xml]$project = Get-Content .\ModbusScanner\ModbusScanner.csproj
+          $tag = "v$($project.Project.PropertyGroup.Version)"
+          if ($env:REQUESTED_TAG -and $env:REQUESTED_TAG -ne $tag) { throw "Requested tag does not match project version" }
+          if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}" -ne $tag) { throw "Tag does not match project version" }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
       - name: Run production regression checks
         run: dotnet run --project ModbusScanner.Tests/ModbusScanner.Tests.csproj -c Release
       - name: Publish Windows x64 single-file app
@@ -39,14 +52,19 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Path .\publish\* -DestinationPath .\Modbus-Scanner-Windows-x64.zip -Force
-          Get-FileHash .\Modbus-Scanner-Windows-x64.zip -Algorithm SHA256 | Format-List
+          $hash = (Get-FileHash .\Modbus-Scanner-Windows-x64.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  Modbus-Scanner-Windows-x64.zip" | Set-Content -Encoding ascii SHA256SUMS.txt
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
-          name: Modbus Scanner ${{ github.event.inputs.tag_name || github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Modbus Scanner ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          body_path: CHANGELOG.md
           generate_release_notes: true
           make_latest: true
-          files: Modbus-Scanner-Windows-x64.zip
+          files: |
+            Modbus-Scanner-Windows-x64.zip
+            SHA256SUMS.txt
 

@@ -103,20 +103,26 @@ public partial class MainWindow
     }
     private void DrawTrend()
     {
-        if(TrendCanvas==null || TrendAddressBox==null || !ushort.TryParse(TrendAddressBox.Text,out var address))return;
+        if(TrendCanvas==null || TrendAddressBox==null)return;
         TrendCanvas.Children.Clear();
+        var addresses=TrendAddressBox.Text.Split(',').Select(x=>ushort.TryParse(x.Trim(),out var v)?(ushort?)v:null).ToArray();
+        if(addresses.Length>4 || addresses.Any(x=>!x.HasValue))return;
         byte fc=(byte)(FunctionBox.SelectedIndex+1);
-        var points=_history.Where(p=>p.Address==address && p.Function==fc && double.IsFinite(p.Value)).TakeLast(1000).ToArray();
-        if(points.Length<2)return;
-        double min=points.Min(p=>p.Value), max=points.Max(p=>p.Value), span=Math.Max(max-min,1e-9);
-        double width=Math.Max(TrendCanvas.ActualWidth-20,1),height=Math.Max(TrendCanvas.ActualHeight-40,1);
-        double seconds=Math.Max((points[^1].Time-points[0].Time).TotalSeconds,0.001);
-        var line=new Polyline{Stroke=Brushes.Turquoise,StrokeThickness=2};
-        foreach(var p in points)line.Points.Add(new Point(10+(p.Time-points[0].Time).TotalSeconds/seconds*width,10+height-(p.Value-min)/span*height));
-        TrendCanvas.Children.Add(line);
-        var label=new TextBlock{Text=$"FC{fc} / {address}   min {min:G6}   max {max:G6}   последнее {points[^1].Value:G6} {points[^1].Unit}   {points[0].Time:HH:mm:ss}–{points[^1].Time:HH:mm:ss}",Foreground=Brushes.White};
-        Canvas.SetTop(label,height+15);TrendCanvas.Children.Add(label);
+        var series=addresses.Select(a=>_history.Where(p=>p.Address==a!.Value && p.Function==fc && double.IsFinite(p.Value)).TakeLast(1000).ToArray()).Where(p=>p.Length>=2).ToArray();
+        if(series.Length==0)return;
+        double min=series.Min(s=>s.Min(p=>p.Value)),max=series.Max(s=>s.Max(p=>p.Value)),span=Math.Max(max-min,1e-9);
+        var first=series.Min(s=>s[0].Time);var last=series.Max(s=>s[^1].Time);
+        double width=Math.Max(TrendCanvas.ActualWidth-20,1),height=Math.Max(TrendCanvas.ActualHeight-65,1),seconds=Math.Max((last-first).TotalSeconds,0.001);
+        Brush[] colors={Brushes.Turquoise,Brushes.Orange,Brushes.LightPink,Brushes.YellowGreen};
+        for(int i=0;i<series.Length;i++){
+            var points=series[i];var line=new Polyline{Stroke=colors[i],StrokeThickness=2};
+            foreach(var point in points)line.Points.Add(new Point(10+(point.Time-first).TotalSeconds/seconds*width,10+height-(point.Value-min)/span*height));
+            TrendCanvas.Children.Add(line);
+            var label=new TextBlock{Text=$"FC{fc}/{points[0].Address}: {points[^1].Value:G6} {points[^1].Unit}",Foreground=colors[i]};Canvas.SetTop(label,height+15+(i/2)*18);Canvas.SetLeft(label,(i%2)*300);TrendCanvas.Children.Add(label);
+        }
+        var axis=new TextBlock{Text=$"min {min:G6} / max {max:G6} · {first:HH:mm:ss}–{last:HH:mm:ss}",Foreground=Brushes.White};TrendCanvas.Children.Add(axis);
     }
+
     private void TrendChanged(object sender,RoutedEventArgs e)=>DrawTrend();
     private void TrendResized(object sender,SizeChangedEventArgs e)=>DrawTrend();
     private void ClearHistory_Click(object sender,RoutedEventArgs e){_history.Clear();DrawTrend();}
@@ -139,7 +145,7 @@ public partial class MainWindow
         if(!Dispatcher.CheckAccess()){Dispatcher.Invoke(()=>RecordExchange(latency,error));return;}
         _requests++;_totalLatency+=latency;
         string category=error switch {null=>"OK",ModbusDeviceException=>"Исключение Modbus",TimeoutException or OperationCanceledException=>"Тайм-аут / отмена",System.Net.Sockets.SocketException=>"Соединение",EndOfStreamException=>"Обрыв",_ when error.Message.Contains("CRC")=>"CRC",_=>"Кадр / обмен"};
-        if(error!=null){_errors++;Log($"{category}: {error.Message}");foreach(var row in _rows)row.Quality="Устарело";}
+        if(error!=null){_errors++;Log($"{category}: {error.Message}");foreach(var row in _rows)row.Quality="Устарело";UpdateSnapshotComparison();}
         DiagnosticsText.Text=$"Запросов {_requests} · ошибок {_errors} ({100.0*_errors/_requests:F1}%) · последний {latency:F1} мс · среднее {_totalLatency/_requests:F1} мс · {category}";
     }
     private bool ApproveWrite(byte function,ushort start,ushort[] values)

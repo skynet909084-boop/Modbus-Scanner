@@ -42,6 +42,12 @@ static class Program
         method.Invoke(window,new object[]{(ushort)0,new ushort[]{11,20},(byte)3});
         var differences=(DataGrid)window.FindName("SnapshotGrid");
         Check(differences.Items.Count==1,"snapshot comparison uses production apply path");
+        ((TextBox)window.FindName("UnitBox")).Text="2";
+        method.Invoke(window,new object[]{(ushort)0,new ushort[]{50},(byte)3});
+        Check(rows.Count(r=>r.Quality=="OK")==1,"old device values marked stale");
+        Check(differences.Items.Count==0,"different device cannot compare snapshot");
+        var paired=new RegisterRow{RawValue=0x3f80};paired.SetNext(0);Check(paired.FloatABCD=="1","simultaneous float columns");
+        paired.SetNext(null);Check(paired.FloatABCD=="—","no adjacent register is not zero-filled");
         window.Close();Console.WriteLine($"{count} checks passed");
     }
     static async Task ProbeLoopback(bool stalled)

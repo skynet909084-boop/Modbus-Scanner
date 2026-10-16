@@ -7,7 +7,14 @@ public sealed class RegisterRow : INotifyPropertyChanged
 {
     private ushort _address;
     private double _scale=1, _offset;
-    public ushort PendingValue { get; set; }
+    private ushort _pendingValue;
+    public ushort PendingValue { get=>_pendingValue; set{_pendingValue=value;OnPropertyChanged();} }
+    private ushort? _next;
+    public string FloatABCD => _next.HasValue ? RegisterAnalysis.Float(RawValue,_next.Value,"ABCD") : "—";
+    public string FloatBADC => _next.HasValue ? RegisterAnalysis.Float(RawValue,_next.Value,"BADC") : "—";
+    public string FloatCDAB => _next.HasValue ? RegisterAnalysis.Float(RawValue,_next.Value,"CDAB") : "—";
+    public string FloatDCBA => _next.HasValue ? RegisterAnalysis.Float(RawValue,_next.Value,"DCBA") : "—";
+    public void SetNext(ushort? value){_next=value;OnPropertyChanged(nameof(FloatABCD));OnPropertyChanged(nameof(FloatBADC));OnPropertyChanged(nameof(FloatCDAB));OnPropertyChanged(nameof(FloatDCBA));}
     public byte Function { get; set; } = 3;
     public string Unit { get; set; } = "";
     public double Scale { get=>_scale; set { if(!double.IsFinite(value))return; _scale=value; OnPropertyChanged(); OnPropertyChanged(nameof(ScaledValue)); } }

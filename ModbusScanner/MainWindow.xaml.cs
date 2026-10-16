@@ -42,7 +42,7 @@ public partial class MainWindow : Window
     private sealed record ScannerProfile(
         int ProtocolIndex, string Host, string Port, string? ComPort, int BaudIndex,
         int ParityIndex, int DataBitsIndex, int StopBitsIndex, string UnitId,
-        int FunctionIndex, string StartAddress, string Quantity, int ValueTypeIndex, string MonitorInterval, List<RegisterDefinition>? Registers = null);
+        int FunctionIndex, string StartAddress, string Quantity, int ValueTypeIndex, string MonitorInterval, List<RegisterDefinition>? Registers = null, int? BaudRate = null);
 
     private void SaveProfile_Click(object sender, RoutedEventArgs e)
     {
@@ -52,7 +52,7 @@ public partial class MainWindow : Window
             if (dialog.ShowDialog() != true) return;
             var profile = new ScannerProfile(ProtocolBox.SelectedIndex, HostBox.Text, PortBox.Text, ComBox.SelectedItem?.ToString(),
                 BaudBox.SelectedIndex, ParityBox.SelectedIndex, DataBitsBox.SelectedIndex, StopBitsBox.SelectedIndex,
-                UnitBox.Text, FunctionBox.SelectedIndex, StartAddressBox.Text, QuantityBox.Text, ValueTypeBox.SelectedIndex, MonitorIntervalBox.Text, _rows.Select(r => new RegisterDefinition(r.Address, r.Function, r.Description, r.Unit, r.Scale, r.Offset)).ToList());
+                UnitBox.Text, FunctionBox.SelectedIndex, StartAddressBox.Text, QuantityBox.Text, ValueTypeBox.SelectedIndex, MonitorIntervalBox.Text, _rows.Select(r => new RegisterDefinition(r.Address, r.Function, r.Description, r.Unit, r.Scale, r.Offset)).ToList(), int.Parse(((ComboBoxItem)BaudBox.SelectedItem).Content.ToString()!, CultureInfo.InvariantCulture));
             File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true }));
             Log("Профиль сохранён: " + dialog.FileName);
         }
@@ -69,7 +69,7 @@ public partial class MainWindow : Window
             var profile = JsonSerializer.Deserialize<ScannerProfile>(File.ReadAllText(dialog.FileName))
                 ?? throw new InvalidDataException("Файл профиля пуст или имеет неверный формат.");
             if (profile.ProtocolIndex is < 0 or > 1 || profile.FunctionIndex is < 0 or > 3 || profile.ValueTypeIndex is < 0 or > 9 ||
-                profile.BaudIndex < 0 || profile.BaudIndex >= BaudBox.Items.Count || profile.ParityIndex < 0 || profile.ParityIndex >= ParityBox.Items.Count ||
+                (profile.BaudRate == null && (profile.BaudIndex < 0 || profile.BaudIndex >= BaudBox.Items.Count)) || profile.ParityIndex < 0 || profile.ParityIndex >= ParityBox.Items.Count ||
                 profile.DataBitsIndex < 0 || profile.DataBitsIndex >= DataBitsBox.Items.Count || profile.StopBitsIndex < 0 || profile.StopBitsIndex >= StopBitsBox.Items.Count)
                 throw new InvalidDataException("В профиле содержатся недопустимые индексы настроек.");
             if (_scanCts != null) throw new InvalidOperationException("Сначала остановите текущую операцию.");
@@ -83,7 +83,12 @@ public partial class MainWindow : Window
             HostBox.Text = profile.Host ?? "";
             PortBox.Text = profile.Port ?? "502";
             if (!string.IsNullOrWhiteSpace(profile.ComPort) && ComBox.Items.Contains(profile.ComPort)) ComBox.SelectedItem = profile.ComPort;
-            BaudBox.SelectedIndex = profile.BaudIndex; ParityBox.SelectedIndex = profile.ParityIndex;
+            if(profile.BaudRate.HasValue){
+                if(profile.BaudRate.Value<300 || profile.BaudRate.Value>1000000)throw new InvalidDataException("Некорректная скорость.");
+                var baudItem=BaudBox.Items.Cast<ComboBoxItem>().FirstOrDefault(x=>x.Content.ToString()==profile.BaudRate.Value.ToString());
+                if(baudItem==null){baudItem=new ComboBoxItem{Content=profile.BaudRate.Value.ToString()};BaudBox.Items.Add(baudItem);}BaudBox.SelectedItem=baudItem;
+            }else BaudBox.SelectedIndex = profile.BaudIndex;
+            ParityBox.SelectedIndex = profile.ParityIndex;
             DataBitsBox.SelectedIndex = profile.DataBitsIndex; StopBitsBox.SelectedIndex = profile.StopBitsIndex;
             UnitBox.Text = profile.UnitId ?? "1"; FunctionBox.SelectedIndex = profile.FunctionIndex;
             StartAddressBox.Text = profile.StartAddress ?? "0"; QuantityBox.Text = profile.Quantity ?? "100";
@@ -110,6 +115,7 @@ public partial class MainWindow : Window
         foreach (var row in _rows)
         {
             if (row.Function != FunctionBox.SelectedIndex+1) continue;
+            row.SetNext(byAddress.TryGetValue(row.Address+1,out var pairValue)?pairValue:null);
             uint bits = row.RawValue;
             bool needsPair = ValueMode >= 2;
             if (needsPair)
@@ -409,6 +415,7 @@ public partial class MainWindow : Window
                 ushort len = (ushort)pdu.Length;
                 frame[4] = (byte)(len >> 8); frame[5] = (byte)len; frame[6] = pdu[0];
                 Array.Copy(pdu, 1, frame, 7, pdu.Length - 1);
+                LogFrame("TX TCP ADU",frame);
                 await stream.WriteAsync(frame, ct);
                 byte[] header = new byte[7];
                 await ReadExactAsync(stream, header, ct);
@@ -423,6 +430,7 @@ public partial class MainWindow : Window
                 byte[] tail = new byte[length - 1];
                 await ReadExactAsync(stream, tail, ct);
                 Array.Copy(tail, 0, response, 1, tail.Length);
+                LogFrame("RX TCP ADU",header.Concat(tail).ToArray());
                 if (response.Length < 2 || (response[1] != function && response[1] != (byte)(function | 0x80)))
                     throw new IOException("Функция в ответе Modbus TCP не совпадает с запросом.");
                 return response;
@@ -444,6 +452,7 @@ public partial class MainWindow : Window
                 var serialTimer=System.Diagnostics.Stopwatch.StartNew();
                 int serialBudget=650;
                 int NextByte(){ ct.ThrowIfCancellationRequested(); int remaining=serialBudget-(int)serialTimer.ElapsedMilliseconds; if(remaining<=0)throw new TimeoutException("Тайм-аут RTU кадра."); serial.ReadTimeout=remaining;return ReadSerialByte(serial); }
+                LogFrame("TX RTU ADU",frame);
                 serial.Write(frame, 0, frame.Length);
                 var first = NextByte();
                 if (first != pdu[0]) throw new IOException("Ответ от другого Slave ID.");
@@ -633,6 +642,20 @@ public partial class MainWindow : Window
         catch (Exception ex) { row.Quality = "Ошибка"; Log("Повторное чтение: " + ex.Message); }
     }
 
+    private sealed record RtuFound(string Com,int Baud,Parity Parity,int Data,StopBits Stop,byte Unit,string Details)
+    {
+        public override string ToString()=>$"{Com} {Baud}/{Parity}/{Data}/{Stop}, ID {Unit}: {Details}";
+    }
+    private void RtuFound_Selected(object sender, SelectionChangedEventArgs e)
+    {
+        if(_scanCts!=null || RtuFoundList.SelectedItem is not RtuFound hit)return;
+        Disconnect();ProtocolBox.SelectedIndex=0;
+        if(ComBox.Items.Contains(hit.Com))ComBox.SelectedItem=hit.Com;
+        BaudBox.SelectedItem=BaudBox.Items.Cast<ComboBoxItem>().FirstOrDefault(x=>x.Content.ToString()==hit.Baud.ToString());
+        if(BaudBox.SelectedItem==null){BaudBox.Items.Add(new ComboBoxItem{Content=hit.Baud.ToString()});BaudBox.SelectedIndex=BaudBox.Items.Count-1;}
+        ParityBox.SelectedIndex=hit.Parity==Parity.Even?1:hit.Parity==Parity.Odd?2:0;
+        DataBitsBox.SelectedIndex=hit.Data-5;StopBitsBox.SelectedIndex=hit.Stop==StopBits.Two?1:0;UnitBox.Text=hit.Unit.ToString();
+    }
     private int _rtuCursor;
     private string _rtuSignature = "";
     private async void ScanRtu_Click(object sender, RoutedEventArgs e)
@@ -652,7 +675,7 @@ public partial class MainWindow : Window
             var stop=StopBitsBox.SelectedIndex==1?StopBits.Two:StopBits.One;
             var plan=(from baud in rates from parity in parities from unit in Enumerable.Range(unitFrom,unitTo-unitFrom+1) select (baud,parity,unit)).ToArray();
             string signature=$"{com}|{string.Join(',',rates)}|{string.Join(',',parities)}|{unitFrom}|{unitTo}|{fc}|{address}|{data}|{stop}";
-            if(signature!=_rtuSignature || RtuResumeBox.IsChecked!=true || _rtuCursor>=plan.Length)_rtuCursor=0;
+            if(signature!=_rtuSignature || RtuResumeBox.IsChecked!=true || _rtuCursor>=plan.Length){_rtuCursor=0;RtuFoundList.Items.Clear();}
             _rtuSignature=signature;
             using var cts=new CancellationTokenSource();_scanCts=cts;SetBusy(true);Disconnect();_transportContext=ConnectionContext;
             try
@@ -664,8 +687,8 @@ public partial class MainWindow : Window
                         Disconnect();_serial=new SerialPort(com,item.baud,item.parity,data,stop){ReadTimeout=250,WriteTimeout=250};_serial.Open();
                     }
                     StatusText.Text=$"RTU {_rtuCursor+1}/{plan.Length}: {item.baud}/{item.parity}, ID {item.unit}";
-                    try{await ReadAsync((byte)item.unit,fc,address,1,cts.Token);Log($"НАЙДЕНО {com} {item.baud}/{item.parity}/{data}/{stop}, ID {item.unit}");}
-                    catch(ModbusDeviceException ex){Log($"НАЙДЕНО {com} {item.baud}/{item.parity}, ID {item.unit}: {ex.Message}");}
+                    try{await ReadAsync((byte)item.unit,fc,address,1,cts.Token);Log($"НАЙДЕНО {com} {item.baud}/{item.parity}/{data}/{stop}, ID {item.unit}");RtuFoundList.Items.Add(new RtuFound(com,item.baud,item.parity,data,stop,(byte)item.unit,"чтение подтверждено"));}
+                    catch(ModbusDeviceException ex){Log($"НАЙДЕНО {com} {item.baud}/{item.parity}, ID {item.unit}: {ex.Message}");RtuFoundList.Items.Add(new RtuFound(com,item.baud,item.parity,data,stop,(byte)item.unit,ex.Message));}
                     catch(OperationCanceledException) when(cts.IsCancellationRequested){throw;}
                     catch(Exception ex){Log($"RTU ID {item.unit}: {ex.Message}");}
                 }
