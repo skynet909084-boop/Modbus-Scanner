@@ -1110,6 +1110,63 @@ public partial class MainWindow : Window
         finally { _diagnosisCts = null; }
     }
 
+    private async void DiagnoseCompare_Click(object sender, RoutedEventArgs e)
+    {
+        if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
+        try
+        {
+            IPAddress target = GetDiagnosisAddress();
+            var adapter = LanAdapterBox.SelectedItem as LanAdapterChoice;
+            if (adapter is null) { RefreshLanAdapters(); adapter = LanAdapterBox.SelectedItem as LanAdapterChoice; }
+            if (adapter is null) throw new InvalidOperationException("Выберите сетевой адаптер.");
+            IPAddress? gateway = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.Name == adapter.Adapter)
+                .SelectMany(n => n.GetIPProperties().GatewayAddresses)
+                .Select(g => g.Address)
+                .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
+            if (gateway is null) throw new InvalidOperationException("IPv4-шлюз не найден.");
+            using var cts = new CancellationTokenSource();
+            _diagnosisCts = cts;
+            DiagnosisOutputBox.Clear();
+            AppendDiagnosis($"Сравнение: шлюз {gateway} / цель {target}, по 5 ICMP-запросов");
+            async Task<(int Received, double Average)> Measure(IPAddress ip)
+            {
+                int received = 0;
+                long total = 0;
+                using var ping = new Ping();
+                for (int i = 0; i < 5; i++)
+                {
+                    cts.Token.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var reply = await ping.SendPingAsync(ip, TimeSpan.FromMilliseconds(1000),
+                            Array.Empty<byte>(), new PingOptions(), cts.Token);
+                        if (reply.Status == IPStatus.Success)
+                        {
+                            received++;
+                            total += reply.RoundtripTime;
+                        }
+                    }
+                    catch (PingException ex) { AppendDiagnosis($"ICMP {ip}: {ex.Message}"); }
+                }
+                return (received, received == 0 ? 0 : (double)total / received);
+            }
+            var gw = await Measure(gateway);
+            var dst = await Measure(target);
+            AppendDiagnosis($"Шлюз: ответов {gw.Received}/5, средняя RTT {gw.Average:F1} мс");
+            AppendDiagnosis($"Цель:  ответов {dst.Received}/5, средняя RTT {dst.Average:F1} мс");
+            if (gw.Received == 0) AppendDiagnosis("Шлюз не отвечает на ICMP. Возможна фильтрация; проверьте локальное соединение.");
+            else if (dst.Received == 0) AppendDiagnosis("Цель не отвечает на ICMP. Проверьте маршрут, фильтрацию и доступность сервиса.");
+            else if (dst.Average > gw.Average + 50)
+                AppendDiagnosis("У цели RTT более чем на 50 мс выше шлюза. Проверьте маршрут и нагрузку; причина не установлена.");
+            else AppendDiagnosis("По этим измерениям значительного превышения RTT цели над шлюзом не обнаружено.");
+            AppendDiagnosis("Измерения последовательные, не одновременные. Для устойчивого вывода повторите проверку.");
+        }
+        catch (OperationCanceledException) { AppendDiagnosis("Сравнение остановлено."); }
+        catch (Exception ex) { AppendDiagnosis("Ошибка сравнения: " + ex.Message); }
+        finally { _diagnosisCts = null; }
+    }
+
     private async void DiagnoseDns_Click(object sender, RoutedEventArgs e)
     {
         if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
