@@ -836,6 +836,9 @@ public partial class MainWindow : Window
         var timer = System.Diagnostics.Stopwatch.StartNew();
         try
         {
+            // Recheck inside the serialized exchange: a scan may start while a write waits for the gate.
+            if (function is 5 or 6 or 16 && _scanCts is not null)
+                throw new InvalidOperationException(UiText("Остановите мониторинг или поиск перед записью в устройство.", "Stop monitoring or scanning before writing to the device."));
             LogFrame("TX PDU", pdu);
             var result = await ExchangeCoreAsync(pdu, function, ct);
             LogFrame("RX ADU (RTU) / Unit+PDU (TCP)", result);
