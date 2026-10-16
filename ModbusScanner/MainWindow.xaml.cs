@@ -900,6 +900,7 @@ public partial class MainWindow : Window
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
+                // Retry isolated failures by splitting; preserve cancellation and avoid endless retries.
                 if (count > 1)
                 {
                     int left = count / 2;
