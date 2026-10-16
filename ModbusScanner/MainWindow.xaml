@@ -316,7 +316,22 @@
       </WrapPanel>
       <TextBlock Text="Проверяемые порты: 80, 443, 22, 23, 502, 8080, 554, 3389, 445, 9100. Отсутствие ответа не означает, что IP свободен." TextWrapping="Wrap" Margin="0,5,0,8"/>
       <TextBlock Text="Выберите найденный адрес, чтобы перенести его в настройки Modbus TCP (порт 502)." TextWrapping="Wrap" Margin="0,5,0,5"/>
-      <ListBox x:Name="LanResultsList" MinHeight="200" FontFamily="Consolas" SelectionChanged="LanResultsList_SelectionChanged"/>
+      <TabControl Margin="0,8,0,0">
+        <TabItem Header="Список устройств">
+          <ListBox x:Name="LanResultsList" MinHeight="200" FontFamily="Consolas" SelectionChanged="LanResultsList_SelectionChanged"/>
+        </TabItem>
+        <TabItem Header="Карта сети">
+          <DockPanel Margin="8">
+            <StackPanel DockPanel.Dock="Top">
+              <Button Content="Обновить карту по результатам поиска" Click="RefreshLanMap_Click" HorizontalAlignment="Left"/>
+              <TextBlock Text="Пунктирные линии показывают только принадлежность к результатам поиска, НЕ реальные кабельные соединения. Для достоверной топологии потребуются LLDP/SNMP." TextWrapping="Wrap" Margin="0,6,0,8"/>
+            </StackPanel>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MinHeight="260">
+              <Canvas x:Name="LanMapCanvas" Width="900" Height="450" Background="#FF0B1420"/>
+            </ScrollViewer>
+          </DockPanel>
+        </TabItem>
+      </TabControl>
     </StackPanel>
    </TabItem>
    <TabItem Header="Справка / О программе">
