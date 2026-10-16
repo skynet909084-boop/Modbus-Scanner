@@ -842,6 +842,8 @@ public partial class MainWindow : Window
             LogFrame("TX PDU", pdu);
             var result = await ExchangeCoreAsync(pdu, function, ct);
             LogFrame("RX ADU (RTU) / Unit+PDU (TCP)", result);
+            if (result.Length < 2)
+                throw new IOException(UiText("Устройство вернуло слишком короткий ответ Modbus. Проверьте соединение и настройки устройства.", "The device returned an incomplete Modbus response. Check the connection and device settings."));
             if ((result[1] & 0x80) != 0)
             {
                 if (result.Length != (IsTcp ? 3 : 5)) throw new IOException("Неверная длина исключения Modbus.");
