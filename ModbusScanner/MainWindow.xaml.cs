@@ -184,7 +184,10 @@ public partial class MainWindow : Window
                 if (column.Header is string columnTitle) _originalColumnHeaders[column] = columnTitle;
         if (root is Button b && b.Content is string buttonText) _originalLabels[b] = buttonText;
         if (root is TabItem tab && tab.Header is string header) _originalLabels[tab] = header;
-        if (root is TextBlock label) _originalLabels[label] = label.Text;
+        if (root is TextBlock label && !string.IsNullOrWhiteSpace(label.Text) &&
+            System.Windows.Data.BindingOperations.GetBindingBase(label, TextBlock.TextProperty) is null &&
+            label != StatusText)
+            _originalLabels[label] = label.Text;
         if (root is CheckBox check && check.Content is string checkText) _originalLabels[check] = checkText;
         if (root is System.Windows.Controls.HeaderedContentControl headered && headered.Header is string title && root is not TabItem) _originalLabels[headered] = title;
         if (root is System.Windows.Controls.HeaderedItemsControl headeredItems && headeredItems.Header is string itemsTitle) _originalLabels[headeredItems] = itemsTitle;
