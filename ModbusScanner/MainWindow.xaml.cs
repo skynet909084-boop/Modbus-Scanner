@@ -613,6 +613,7 @@ public partial class MainWindow : Window
         HostBox.IsEnabled = tcp;
         PortBox.IsEnabled = tcp;
         StatusText.Text = tcp ? UiText("Режим Modbus TCP", "Modbus TCP mode") : UiText("Режим Modbus RTU", "Modbus RTU mode");
+        StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
     }
 
     private void RefreshCom_Click(object sender, RoutedEventArgs e) { if(_scanCts==null && _operationGate.CurrentCount==1)RefreshComPorts(); }
@@ -803,8 +804,9 @@ public partial class MainWindow : Window
             ApplyReadValues(GetStart(), values, (byte)(FunctionBox.SelectedIndex + 1));
             Log($"Прочитано {values.Length} значений с адреса {GetStart()} (FC{FunctionBox.SelectedIndex + 1}).");
             StatusText.Text = UiText($"Прочитано: {values.Length}", $"Read: {values.Length}");
+            StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
         }
-        catch (Exception ex) { Log("Ошибка чтения: " + ex.Message); SetStatusText("Ошибка чтения"); }
+        catch (Exception ex) { Log("Ошибка чтения: " + ex.Message); SetStatusText("Ошибка чтения"); StatusText.Foreground = System.Windows.Media.Brushes.OrangeRed; }
     }
 
     private async Task<ushort[]> ReadAsync(byte unit, byte function, ushort start, ushort quantity, CancellationToken ct)
