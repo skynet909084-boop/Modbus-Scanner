@@ -107,6 +107,24 @@ public partial class MainWindow : Window
             ? $"0x{value:X4}"
             : value.ToString(CultureInfo.InvariantCulture);
 
+    private void SetBit_Click(object sender, RoutedEventArgs e) => ChangePreparedBit(true);
+    private void ClearBit_Click(object sender, RoutedEventArgs e) => ChangePreparedBit(false);
+
+    private void ChangePreparedBit(bool set)
+    {
+        try
+        {
+            if (BitIndexBox.SelectedIndex is < 0 or > 15)
+                throw new InvalidOperationException("Выберите бит 0–15.");
+            ushort before = ParseWriteValue();
+            ushort mask = (ushort)(1 << BitIndexBox.SelectedIndex);
+            ushort after = set ? (ushort)(before | mask) : (ushort)(before & ~mask);
+            WriteValueBox.Text = FormatWriteValue(after);
+            Log($"Подготовка бита {BitIndexBox.SelectedIndex}: 0x{before:X4} → 0x{after:X4}. На устройство ничего не отправлено.");
+        }
+        catch (Exception ex) { MessageBox.Show(ex.Message, "Редактор битов", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
     private ushort ParseWriteValue()
     {
         var input = WriteValueBox.Text.Trim();
