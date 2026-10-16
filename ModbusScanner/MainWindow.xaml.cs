@@ -141,8 +141,9 @@ public partial class MainWindow : Window
         if (root is TabItem tab && tab.Header is string header) _originalLabels[tab] = header;
         if (root is TextBlock label) _originalLabels[label] = label.Text;
         if (root is CheckBox check && check.Content is string checkText) _originalLabels[check] = checkText;
-        int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++) CaptureLabels(System.Windows.Media.VisualTreeHelper.GetChild(root, i));
+        // Logical traversal also includes content of tabs that have never been opened.
+        foreach (object child in LogicalTreeHelper.GetChildren(root))
+            if (child is DependencyObject element) CaptureLabels(element);
     }
 
     private void ApplyLanguage(string language)
