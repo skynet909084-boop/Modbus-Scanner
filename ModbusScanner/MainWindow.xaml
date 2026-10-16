@@ -326,11 +326,12 @@
             <WrapPanel Margin="0,8,0,8">
               <TextBlock Text="Адрес" VerticalAlignment="Center"/>
               <TextBox x:Name="DiagHostBox" Width="160" Text="192.168.1.1"/>
-              <Button Content="Ping × 4" Click="DiagnosePing_Click"/>
+              <Button Content="Ping × 4" Click="DiagnosePing_Click"/><Button Content="Мониторинг × 20" Click="DiagnoseMonitor_Click"/>
               <Button Content="Трассировка" Click="DiagnoseTrace_Click"/><Button Content="TCP-порт" Click="DiagnoseTcp_Click"/><Button Content="Проверить DNS" Click="DiagnoseDns_Click"/><Button Content="Ping шлюза" Click="DiagnoseGateway_Click"/><TextBlock Text="Порт" VerticalAlignment="Center"/><TextBox x:Name="DiagPortBox" Width="65" Text="502"/>
               <Button Content="Остановить" Click="StopDiagnosis_Click"/>
             </WrapPanel>
             <TextBlock Text="Потери и задержки показывают симптомы, но не доказывают неисправность кабеля. Промежуточные маршрутизаторы могут не отвечать на ICMP." TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="140"><StackPanel x:Name="DiagnosisChartPanel" Orientation="Horizontal" Height="125"/></ScrollViewer>
             <TextBox x:Name="DiagnosisOutputBox" FontFamily="Consolas" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MinHeight="250" MaxHeight="550" AcceptsReturn="True"/>
           </StackPanel>
         </TabItem>
