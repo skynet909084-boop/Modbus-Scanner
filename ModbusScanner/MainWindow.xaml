@@ -126,7 +126,7 @@
    <MenuItem Header="USB / RS-485" Tag="6" Click="MainMenuNavigate_Click" Padding="7,4" FontSize="12" Foreground="#E6F3FF"/>
    <MenuItem Header="Справка" Tag="7" Click="MainMenuNavigate_Click" Padding="7,4" FontSize="12" Foreground="#E6F3FF"/>
   </Menu>
-  <Border Grid.Row="2" Background="#FF121D2B" BorderBrush="#FF2A4358" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,8">
+  <Border Grid.Row="1" Background="#FF121D2B" BorderBrush="#FF2A4358" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,8">
    <DockPanel>
     <StackPanel DockPanel.Dock="Left">
      <TextBlock Text="MODBUS SCANNER" FontSize="25" FontWeight="Bold" FontFamily="Segoe UI" Foreground="#FF29E6D2"/>
@@ -136,7 +136,7 @@
     <TextBlock x:Name="StatusText" DockPanel.Dock="Right" Text="Не подключено" VerticalAlignment="Center" FontSize="14" Foreground="#FFF0B85B"/>
    </DockPanel>
   </Border>
-  <Border Grid.Row="1" Background="#FF202833" CornerRadius="8" Padding="8" Margin="0,0,0,8">
+  <Border Grid.Row="2" Background="#FF202833" CornerRadius="8" Padding="8" Margin="0,0,0,8">
    <StackPanel>
     <WrapPanel VerticalAlignment="Center">
      <TextBlock Text="Протокол" VerticalAlignment="Center" Margin="4"/>
