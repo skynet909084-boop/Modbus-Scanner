@@ -1041,28 +1041,48 @@ public partial class MainWindow : Window
         catch (Exception ex) { Log("Ошибка экспорта IP-сканера: " + ex.Message); }
     }
 
+    private sealed record LanAdapterChoice(string Adapter, IPAddress Address, IPAddress Mask, bool Gateway)
+    {
+        public override string ToString() => $"{Adapter} — {Address}" + (Gateway ? " (шлюз)" : "");
+    }
+
+    private List<LanAdapterChoice> GetLanAdapters() =>
+        NetworkInterface.GetAllNetworkInterfaces()
+            .Where(n => n.OperationalStatus == OperationalStatus.Up &&
+                        n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                        n.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
+            .SelectMany(n => n.GetIPProperties().UnicastAddresses
+                .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork && a.IPv4Mask is not null)
+                .Select(a => new LanAdapterChoice(n.Name, a.Address, a.IPv4Mask!,
+                    n.GetIPProperties().GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork))))
+            .Where(a => !IPAddress.IsLoopback(a.Address) &&
+                        !a.Address.ToString().StartsWith("169.254.", StringComparison.Ordinal))
+            .OrderByDescending(a => a.Gateway)
+            .ThenBy(a => a.Adapter, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private void RefreshLanAdapters_Click(object sender, RoutedEventArgs e) => RefreshLanAdapters();
+
+    private void RefreshLanAdapters()
+    {
+        try
+        {
+            var previous = (LanAdapterBox.SelectedItem as LanAdapterChoice)?.Address;
+            var adapters = GetLanAdapters();
+            LanAdapterBox.ItemsSource = adapters;
+            LanAdapterBox.SelectedItem = adapters.FirstOrDefault(a => a.Address.Equals(previous)) ?? adapters.FirstOrDefault();
+            Log($"Доступно IPv4-адаптеров: {adapters.Count}.");
+        }
+        catch (Exception ex) { Log("Список адаптеров: " + ex.Message); }
+    }
+
     private void DetectLanSubnet_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var candidates = NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up &&
-                            n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
-                            n.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
-                .SelectMany(n => n.GetIPProperties().UnicastAddresses
-                    .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork &&
-                                a.IPv4Mask is not null)
-                    .Select(a => (Adapter: n.Name, Address: a.Address, Mask: a.IPv4Mask!, Gateway: n.GetIPProperties().GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork))))
-                .Where(a => !IPAddress.IsLoopback(a.Address) &&
-                            !a.Address.ToString().StartsWith("169.254.", StringComparison.Ordinal))
-                .OrderByDescending(a => a.Gateway)
-                .ThenBy(a => a.Adapter, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            if (candidates.Count == 0)
+            if (LanAdapterBox.Items.Count == 0) RefreshLanAdapters();
+            if (LanAdapterBox.SelectedItem is not LanAdapterChoice selected)
                 throw new InvalidOperationException("Активный IPv4-адаптер не найден. Укажите диапазон вручную.");
-            var selected = candidates[0];
-            if (candidates.Count > 1)
-                Log($"Найдено {candidates.Count} активных IPv4-адресов. Выбран адаптер с приоритетом шлюза: {selected.Adapter} ({selected.Address}). Другие сети можно задать вручную.");
             uint mask = IpToUInt(selected.Mask);
             uint network = IpToUInt(selected.Address) & mask;
             uint broadcast = network | ~mask;
@@ -1070,7 +1090,6 @@ public partial class MainWindow : Window
             uint last = broadcast > network ? broadcast - 1 : broadcast;
             if (last < first || last - first > 1023)
             {
-                // Limit wide networks to a /24 segment around the local interface.
                 network = IpToUInt(selected.Address) & 0xFFFFFF00u;
                 first = network + 1;
                 last = network + 254;
@@ -1078,7 +1097,7 @@ public partial class MainWindow : Window
             }
             LanStartBox.Text = UIntToIp(first).ToString();
             LanEndBox.Text = UIntToIp(last).ToString();
-            Log($"Выбран адаптер {selected.Adapter}: {selected.Address}, маска {selected.Mask}; диапазон {LanStartBox.Text}–{LanEndBox.Text}. При нескольких адаптерах проверьте диапазон.");
+            Log($"Выбран адаптер {selected.Adapter}: {selected.Address}, маска {selected.Mask}; диапазон {LanStartBox.Text}–{LanEndBox.Text}.");
         }
         catch (Exception ex) { Log("Определение подсети: " + ex.Message); }
     }
