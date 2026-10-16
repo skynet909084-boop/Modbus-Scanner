@@ -1012,6 +1012,96 @@ public partial class MainWindow : Window
         (445, "SMB / Windows или NAS"), (9100, "JetDirect / возможный принтер")
     };
 
+    private CancellationTokenSource? _diagnosisCts;
+
+    private void StopDiagnosis_Click(object sender, RoutedEventArgs e) => _diagnosisCts?.Cancel();
+
+    private void AppendDiagnosis(string line)
+    {
+        DiagnosisOutputBox.AppendText(line + Environment.NewLine);
+        DiagnosisOutputBox.ScrollToEnd();
+    }
+
+    private IPAddress GetDiagnosisAddress()
+    {
+        if (!IPAddress.TryParse(DiagHostBox.Text.Trim(), out var ip) ||
+            ip.AddressFamily != AddressFamily.InterNetwork)
+            throw new FormatException("Введите корректный IPv4-адрес для диагностики.");
+        return ip;
+    }
+
+    private async void DiagnosePing_Click(object sender, RoutedEventArgs e)
+    {
+        if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
+        try
+        {
+            IPAddress address = GetDiagnosisAddress();
+            using var cts = new CancellationTokenSource();
+            _diagnosisCts = cts;
+            DiagnosisOutputBox.Clear();
+            AppendDiagnosis($"Ping {address}: 4 запроса, тайм-аут 1000 мс");
+            int received = 0;
+            var durations = new List<long>();
+            using var ping = new Ping();
+            for (int i = 1; i <= 4; i++)
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                try
+                {
+                    var reply = await ping.SendPingAsync(address, TimeSpan.FromMilliseconds(1000), Array.Empty<byte>(), new PingOptions(), cts.Token);
+                    if (reply.Status == IPStatus.Success)
+                    {
+                        received++;
+                        durations.Add(reply.RoundtripTime);
+                        AppendDiagnosis($"{i}: ответ {reply.Address}, {reply.RoundtripTime} мс");
+                    }
+                    else AppendDiagnosis($"{i}: {reply.Status}");
+                }
+                catch (PingException ex) { AppendDiagnosis($"{i}: ошибка ICMP: {ex.Message}"); }
+            }
+            AppendDiagnosis($"Получено: {received}/4, потери: {(4 - received) * 25}%");
+            if (durations.Count > 0)
+                AppendDiagnosis($"RTT мин/сред/макс: {durations.Min()}/{durations.Average():F1}/{durations.Max()} мс");
+            AppendDiagnosis("ICMP может блокироваться устройством или межсетевым экраном.");
+        }
+        catch (OperationCanceledException) { AppendDiagnosis("Диагностика остановлена."); }
+        catch (Exception ex) { AppendDiagnosis("Ошибка Ping: " + ex.Message); }
+        finally { _diagnosisCts = null; }
+    }
+
+    private async void DiagnoseTrace_Click(object sender, RoutedEventArgs e)
+    {
+        if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
+        try
+        {
+            IPAddress address = GetDiagnosisAddress();
+            using var cts = new CancellationTokenSource();
+            _diagnosisCts = cts;
+            DiagnosisOutputBox.Clear();
+            AppendDiagnosis($"Трассировка до {address}, максимум 20 переходов (ICMP)");
+            using var ping = new Ping();
+            for (int ttl = 1; ttl <= 20; ttl++)
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                try
+                {
+                    var reply = await ping.SendPingAsync(address, TimeSpan.FromMilliseconds(1200),
+                        new byte[32], new PingOptions(ttl, true), cts.Token);
+                    string hop = reply.Address?.ToString() ?? "*";
+                    AppendDiagnosis($"{ttl,2}: {hop,-16} {reply.Status} {(reply.Status == IPStatus.Success || reply.Status == IPStatus.TtlExpired ? reply.RoundtripTime + " мс" : "")}");
+                    if (reply.Status == IPStatus.Success) { AppendDiagnosis("Целевой адрес достигнут."); break; }
+                    if (reply.Status == IPStatus.DestinationHostUnreachable ||
+                        reply.Status == IPStatus.DestinationNetworkUnreachable) break;
+                }
+                catch (PingException ex) { AppendDiagnosis($"{ttl,2}: ICMP: {ex.Message}"); }
+            }
+            AppendDiagnosis("Звёздочки и тайм-ауты не обязательно означают неисправность узла.");
+        }
+        catch (OperationCanceledException) { AppendDiagnosis("Трассировка остановлена."); }
+        catch (Exception ex) { AppendDiagnosis("Ошибка трассировки: " + ex.Message); }
+        finally { _diagnosisCts = null; }
+    }
+
     private void ClearLanResults_Click(object sender, RoutedEventArgs e)
     {
         if (_scanCts != null) { Log("Сначала остановите поиск, затем очистите результаты."); return; }
