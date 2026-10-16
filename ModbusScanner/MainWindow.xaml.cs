@@ -17,11 +17,13 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<RegisterRow> _rows = new();
     private readonly object _serialGate = new();
+    private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly SemaphoreSlim _tcpGate = new(1, 1);
     private SerialPort? _serial;
     private TcpClient? _tcp;
     private NetworkStream? _stream;
     private ushort _transactionId;
+    private string _transportContext="";
     private CancellationTokenSource? _scanCts;
     private bool _connected;
     private bool IsTcp => ProtocolBox.SelectedIndex == 1;
@@ -40,7 +42,7 @@ public partial class MainWindow : Window
     private sealed record ScannerProfile(
         int ProtocolIndex, string Host, string Port, string? ComPort, int BaudIndex,
         int ParityIndex, int DataBitsIndex, int StopBitsIndex, string UnitId,
-        int FunctionIndex, string StartAddress, string Quantity, int ValueTypeIndex, string MonitorInterval);
+        int FunctionIndex, string StartAddress, string Quantity, int ValueTypeIndex, string MonitorInterval, List<RegisterDefinition>? Registers = null, int? BaudRate = null);
 
     private void SaveProfile_Click(object sender, RoutedEventArgs e)
     {
@@ -50,7 +52,7 @@ public partial class MainWindow : Window
             if (dialog.ShowDialog() != true) return;
             var profile = new ScannerProfile(ProtocolBox.SelectedIndex, HostBox.Text, PortBox.Text, ComBox.SelectedItem?.ToString(),
                 BaudBox.SelectedIndex, ParityBox.SelectedIndex, DataBitsBox.SelectedIndex, StopBitsBox.SelectedIndex,
-                UnitBox.Text, FunctionBox.SelectedIndex, StartAddressBox.Text, QuantityBox.Text, ValueTypeBox.SelectedIndex, MonitorIntervalBox.Text);
+                UnitBox.Text, FunctionBox.SelectedIndex, StartAddressBox.Text, QuantityBox.Text, ValueTypeBox.SelectedIndex, MonitorIntervalBox.Text, _rows.Select(r => new RegisterDefinition(r.Address, r.Function, r.Description, r.Unit, r.Scale, r.Offset)).ToList(), int.Parse(((ComboBoxItem)BaudBox.SelectedItem).Content.ToString()!, CultureInfo.InvariantCulture));
             File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true }));
             Log("Профиль сохранён: " + dialog.FileName);
         }
@@ -63,18 +65,31 @@ public partial class MainWindow : Window
         {
             var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Загрузить профиль Modbus", Filter = "Профиль Modbus (*.json)|*.json|Все файлы (*.*)|*.*", DefaultExt = ".json" };
             if (dialog.ShowDialog() != true) return;
+            if(new FileInfo(dialog.FileName).Length>8_000_000)throw new InvalidDataException("Профиль слишком большой.");
             var profile = JsonSerializer.Deserialize<ScannerProfile>(File.ReadAllText(dialog.FileName))
                 ?? throw new InvalidDataException("Файл профиля пуст или имеет неверный формат.");
-            if (profile.ProtocolIndex is < 0 or > 1 || profile.FunctionIndex is < 0 or > 3 || profile.ValueTypeIndex is < 0 or > 7 ||
-                profile.BaudIndex < 0 || profile.BaudIndex >= BaudBox.Items.Count || profile.ParityIndex < 0 || profile.ParityIndex >= ParityBox.Items.Count ||
+            if (profile.ProtocolIndex is < 0 or > 1 || profile.FunctionIndex is < 0 or > 3 || profile.ValueTypeIndex is < 0 or > 9 ||
+                (profile.BaudRate == null && (profile.BaudIndex < 0 || profile.BaudIndex >= BaudBox.Items.Count)) || profile.ParityIndex < 0 || profile.ParityIndex >= ParityBox.Items.Count ||
                 profile.DataBitsIndex < 0 || profile.DataBitsIndex >= DataBitsBox.Items.Count || profile.StopBitsIndex < 0 || profile.StopBitsIndex >= StopBitsBox.Items.Count)
                 throw new InvalidDataException("В профиле содержатся недопустимые индексы настроек.");
+            if (_scanCts != null || _operationGate.CurrentCount==0) throw new InvalidOperationException("Сначала остановите текущую операцию.");
+            var definitions = profile.Registers ?? new();
+            if (definitions.Any(r => r.Function is < 1 or > 4 || !double.IsFinite(r.Scale) || !double.IsFinite(r.Offset)) || definitions.Select(r => (r.Function,r.Address)).Distinct().Count() != definitions.Count)
+                throw new InvalidDataException("Некорректные определения регистров.");
+            if(profile.BaudRate.HasValue && (profile.BaudRate.Value<300 || profile.BaudRate.Value>1000000))throw new InvalidDataException("Некорректная скорость.");
             Disconnect();
+            _rows.Clear();
+            foreach (var d in definitions) _rows.Add(new RegisterRow { Address=d.Address, Function=d.Function, Description=d.Name, Unit=d.Unit, Scale=d.Scale, Offset=d.Offset });
             ProtocolBox.SelectedIndex = profile.ProtocolIndex;
             HostBox.Text = profile.Host ?? "";
             PortBox.Text = profile.Port ?? "502";
             if (!string.IsNullOrWhiteSpace(profile.ComPort) && ComBox.Items.Contains(profile.ComPort)) ComBox.SelectedItem = profile.ComPort;
-            BaudBox.SelectedIndex = profile.BaudIndex; ParityBox.SelectedIndex = profile.ParityIndex;
+            if(profile.BaudRate.HasValue){
+                if(profile.BaudRate.Value<300 || profile.BaudRate.Value>1000000)throw new InvalidDataException("Некорректная скорость.");
+                var baudItem=BaudBox.Items.Cast<ComboBoxItem>().FirstOrDefault(x=>x.Content.ToString()==profile.BaudRate.Value.ToString());
+                if(baudItem==null){baudItem=new ComboBoxItem{Content=profile.BaudRate.Value.ToString()};BaudBox.Items.Add(baudItem);}BaudBox.SelectedItem=baudItem;
+            }else BaudBox.SelectedIndex = profile.BaudIndex;
+            ParityBox.SelectedIndex = profile.ParityIndex;
             DataBitsBox.SelectedIndex = profile.DataBitsIndex; StopBitsBox.SelectedIndex = profile.StopBitsIndex;
             UnitBox.Text = profile.UnitId ?? "1"; FunctionBox.SelectedIndex = profile.FunctionIndex;
             StartAddressBox.Text = profile.StartAddress ?? "0"; QuantityBox.Text = profile.Quantity ?? "100";
@@ -97,9 +112,11 @@ public partial class MainWindow : Window
     private void UpdateInterpretedValues()
     {
         if (ValueTypeBox is null || RegistersGrid is null) return;
-        var byAddress = _rows.ToDictionary(r => (int)r.Address, r => r.RawValue);
+        var byAddress = _rows.Where(r => r.Function == FunctionBox.SelectedIndex+1).GroupBy(r => (int)r.Address).ToDictionary(g => g.Key, g => g.First().RawValue);
         foreach (var row in _rows)
         {
+            if (row.Function != FunctionBox.SelectedIndex+1) continue;
+            row.SetNext(byAddress.TryGetValue(row.Address+1,out var pairValue)?pairValue:null);
             uint bits = row.RawValue;
             bool needsPair = ValueMode >= 2;
             if (needsPair)
@@ -107,12 +124,14 @@ public partial class MainWindow : Window
                 if (!byAddress.TryGetValue(row.Address + 1, out ushort next)) { row.DisplayValue = "— (нужен следующий регистр)"; continue; }
                 bits = ValueMode is 5 or 6 or 7 ? ((uint)next << 16) | row.RawValue : ((uint)row.RawValue << 16) | next;
             }
+            if (ValueMode == 8) bits = RegisterAnalysis.Order32(row.RawValue, byAddress[row.Address+1], "BADC");
+            if (ValueMode == 9) bits = RegisterAnalysis.Order32(row.RawValue, byAddress[row.Address+1], "DCBA");
             row.DisplayValue = ValueMode switch
             {
                 1 => unchecked((short)row.RawValue).ToString(CultureInfo.InvariantCulture),
                 2 or 5 => bits.ToString(CultureInfo.InvariantCulture),
                 3 or 6 => unchecked((int)bits).ToString(CultureInfo.InvariantCulture),
-                4 or 7 => BitConverter.Int32BitsToSingle(unchecked((int)bits)).ToString("G9", CultureInfo.InvariantCulture),
+                4 or 7 or 8 or 9 => BitConverter.Int32BitsToSingle(unchecked((int)bits)).ToString("G9", CultureInfo.InvariantCulture),
                 _ => row.RawValue.ToString(CultureInfo.InvariantCulture)
             };
         }
@@ -121,6 +140,7 @@ public partial class MainWindow : Window
     private void ProtocolBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ComBox is null) return;
+        Disconnect();
         bool tcp = IsTcp;
         ComBox.IsEnabled = !tcp;
         BaudBox.IsEnabled = !tcp;
@@ -132,7 +152,7 @@ public partial class MainWindow : Window
         StatusText.Text = tcp ? "Режим Modbus TCP" : "Режим Modbus RTU";
     }
 
-    private void RefreshCom_Click(object sender, RoutedEventArgs e) => RefreshComPorts();
+    private void RefreshCom_Click(object sender, RoutedEventArgs e) { if(_scanCts==null && _operationGate.CurrentCount==1)RefreshComPorts(); }
 
     private void RefreshComPorts()
     {
@@ -145,10 +165,10 @@ public partial class MainWindow : Window
 
     private async void Connect_Click(object sender, RoutedEventArgs e)
     {
+        if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите операцию.");return;}
         try
         {
             if (_connected) { Disconnect(); return; }
-            await EnsureConnectedAsync();
             var unit = GetUnit();
             var fc = (byte)(FunctionBox.SelectedIndex + 1);
             var values = await ReadAsync(unit, fc, GetStart(), 1, CancellationToken.None);
@@ -169,6 +189,7 @@ public partial class MainWindow : Window
 
     private async Task EnsureConnectedAsync(CancellationToken ct = default)
     {
+        if(_transportContext!=ConnectionContext){Disconnect();_transportContext=ConnectionContext;}
         if (IsTcp)
         {
             if (_tcp?.Connected == true && _stream is not null) return;
@@ -214,12 +235,13 @@ public partial class MainWindow : Window
 
     private async void StartMonitor_Click(object sender, RoutedEventArgs e)
     {
-        _scanCts?.Cancel();
+        if (_scanCts != null || _operationGate.CurrentCount==0) { Log("Сначала остановите текущую операцию."); return; }
         int interval;
-        try { interval = ParseInt(MonitorIntervalBox.Text, 200, 60000, "Период мониторинга"); }
+        try { interval = ParseInt(MonitorIntervalBox.Text, 200, 60000, "Период мониторинга"); GetStart(); GetQuantity(); GetUnit(); }
         catch (Exception ex) { Log(ex.Message); return; }
         var cts = new CancellationTokenSource();
         _scanCts = cts;
+        SetBusy(true);
         var ct = cts.Token;
         Log($"Мониторинг запущен: FC{FunctionBox.SelectedIndex + 1}, адрес {GetStart()}, количество {GetQuantity()}, период {interval} мс.");
         StatusText.Text = "Мониторинг активен";
@@ -260,6 +282,7 @@ public partial class MainWindow : Window
             if (wasCurrentMonitor)
             {
                 _scanCts = null;
+                SetBusy(false);
                 StatusText.Text = "Мониторинг остановлен";
                 StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
                 Log("Мониторинг остановлен.");
@@ -270,24 +293,29 @@ public partial class MainWindow : Window
 
     private void ApplyReadValues(ushort start, ushort[] values, byte function)
     {
+        EnsureDataContext();
         for (int i = 0; i < values.Length; i++)
         {
             ushort address = (ushort)(start + i);
-            var row = _rows.FirstOrDefault(r => r.Address == address);
+            var row = _rows.FirstOrDefault(r => r.Address == address && r.Function == function);
             if (row is null) { row = new RegisterRow { Address = address }; _rows.Add(row); }
+            row.Function = function;
             row.RawValue = values[i];
+            row.PendingValue = values[i];
             row.Quality = "OK";
             if (function is 1 or 2) row.Description = values[i] == 0 ? "OFF" : "ON";
         }
         SortRows();
         UpdateInterpretedValues();
+        CaptureHistory(function, start, values);
+        UpdateSnapshotComparison();
     }
 
     private async void ReadRange_Click(object sender, RoutedEventArgs e)
     {
+        if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите текущую операцию.");return;}
         try
         {
-            await EnsureConnectedAsync();
             var values = await ReadAsync(GetUnit(), (byte)(FunctionBox.SelectedIndex + 1), GetStart(), GetQuantity(), CancellationToken.None);
             ApplyReadValues(GetStart(), values, (byte)(FunctionBox.SelectedIndex + 1));
             Log($"Прочитано {values.Length} значений с адреса {GetStart()} (FC{FunctionBox.SelectedIndex + 1}).");
@@ -337,6 +365,35 @@ public partial class MainWindow : Window
 
     private async Task<byte[]> ExchangeAsync(byte[] pdu, byte function, CancellationToken ct)
     {
+        await _operationGate.WaitAsync(ct);
+        SetBusy(true);
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            LogFrame("TX PDU", pdu);
+            var result = await ExchangeCoreAsync(pdu, function, ct);
+            LogFrame("RX ADU (RTU) / Unit+PDU (TCP)", result);
+            if ((result[1] & 0x80) != 0)
+            {
+                if (result.Length != (IsTcp ? 3 : 5)) throw new IOException("Неверная длина исключения Modbus.");
+                throw new ModbusDeviceException(result[2]);
+            }
+            FrameChecks.Validate(pdu, result, IsTcp);
+            RecordExchange(timer.Elapsed.TotalMilliseconds, null);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            RecordExchange(timer.Elapsed.TotalMilliseconds, ex);
+            if (ex is not ModbusDeviceException) Disconnect();
+            throw;
+        }
+        finally { if(_scanCts==null)SetBusy(false); _operationGate.Release(); }
+    }
+
+    private async Task<byte[]> ExchangeCoreAsync(byte[] pdu, byte function, CancellationToken ct)
+    {
+        EnsureDataContext();
         await EnsureConnectedAsync(ct);
         if (IsTcp)
         {
@@ -345,6 +402,9 @@ public partial class MainWindow : Window
             await _tcpGate.WaitAsync(ct);
             try
             {
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                deadline.CancelAfter(2000);
+                ct = deadline.Token;
                 var stream = _stream ?? throw new IOException("TCP-поток не открыт.");
                 ushort tid = unchecked(++_transactionId);
                 // MBAP is 6 bytes, followed by Unit ID and the Modbus PDU.
@@ -354,6 +414,7 @@ public partial class MainWindow : Window
                 ushort len = (ushort)pdu.Length;
                 frame[4] = (byte)(len >> 8); frame[5] = (byte)len; frame[6] = pdu[0];
                 Array.Copy(pdu, 1, frame, 7, pdu.Length - 1);
+                LogFrame("TX TCP ADU",frame);
                 await stream.WriteAsync(frame, ct);
                 byte[] header = new byte[7];
                 await ReadExactAsync(stream, header, ct);
@@ -368,6 +429,7 @@ public partial class MainWindow : Window
                 byte[] tail = new byte[length - 1];
                 await ReadExactAsync(stream, tail, ct);
                 Array.Copy(tail, 0, response, 1, tail.Length);
+                LogFrame("RX TCP ADU",header.Concat(tail).ToArray());
                 if (response.Length < 2 || (response[1] != function && response[1] != (byte)(function | 0x80)))
                     throw new IOException("Функция в ответе Modbus TCP не совпадает с запросом.");
                 return response;
@@ -385,21 +447,27 @@ public partial class MainWindow : Window
                 Array.Copy(pdu, frame, pdu.Length);
                 ushort crc = Crc16(frame, pdu.Length);
                 frame[^2] = (byte)crc; frame[^1] = (byte)(crc >> 8);
+                ct.ThrowIfCancellationRequested();
+                var serialTimer=System.Diagnostics.Stopwatch.StartNew();
+                int serialBudget=650;
+                int NextByte(){ ct.ThrowIfCancellationRequested(); int remaining=serialBudget-(int)serialTimer.ElapsedMilliseconds; if(remaining<=0)throw new TimeoutException("Тайм-аут RTU кадра."); serial.ReadTimeout=remaining;return ReadSerialByte(serial); }
+                LogFrame("TX RTU ADU",frame);
                 serial.Write(frame, 0, frame.Length);
-                var first = ReadSerialByte(serial);
+                var first = NextByte();
                 if (first != pdu[0]) throw new IOException("Ответ от другого Slave ID.");
-                var second = ReadSerialByte(serial);
+                var second = NextByte();
                 if ((second & 0x80) != 0)
                 {
-                    var exception = ReadSerialByte(serial);
-                    int crcLow = ReadSerialByte(serial);
-                    int crcHigh = ReadSerialByte(serial);
+                    var exception = NextByte();
+                    int crcLow = NextByte();
+                    int crcHigh = NextByte();
                     byte[] exceptionFrame = { (byte)first, (byte)second, (byte)exception };
                     ushort expectedExceptionCrc = Crc16(exceptionFrame, exceptionFrame.Length);
                     ushort receivedExceptionCrc = (ushort)(crcLow | (crcHigh << 8));
                     if (expectedExceptionCrc != receivedExceptionCrc)
                         throw new IOException("CRC16 исключения RTU не совпадает.");
-                    throw new IOException($"Modbus exception {exception:X2}.");
+                    if (second != (function | 0x80)) throw new IOException("Неверная функция исключения RTU.");
+                    return new byte[] { (byte)first, (byte)second, (byte)exception, (byte)crcLow, (byte)crcHigh };
                 }
                 if (second != function) throw new IOException("Функция ответа не совпадает.");
                 byte[] answer;
@@ -408,17 +476,17 @@ public partial class MainWindow : Window
                     // FC05/06/16 replies echo the address/value or address/quantity; there is no byte-count field.
                     answer = new byte[8];
                     answer[0] = (byte)first; answer[1] = (byte)second;
-                    for (int i = 2; i < answer.Length; i++) answer[i] = (byte)ReadSerialByte(serial);
+                    for (int i = 2; i < answer.Length; i++) answer[i] = (byte)NextByte();
                 }
                 else
                 {
-                    var byteCount = ReadSerialByte(serial);
+                    var byteCount = NextByte();
                     if (byteCount > 250)
                         throw new IOException($"Недопустимая длина данных RTU: {byteCount} байт (максимум 250).");
                     if (function is 3 or 4 && (byteCount == 0 || (byteCount & 1) != 0))
                         throw new IOException($"Недопустимая длина ответа RTU для FC{function}: {byteCount} байт.");
                     byte[] body = new byte[byteCount + 2];
-                    for (int i = 0; i < body.Length; i++) body[i] = (byte)ReadSerialByte(serial);
+                    for (int i = 0; i < body.Length; i++) body[i] = (byte)NextByte();
                     answer = new byte[3 + body.Length];
                     answer[0] = (byte)first; answer[1] = (byte)second; answer[2] = (byte)byteCount;
                     Array.Copy(body, 0, answer, 3, body.Length);
@@ -466,7 +534,7 @@ public partial class MainWindow : Window
         {
             ushort address = ParseUShort(WriteAddressBox.Text, "Адрес записи");
             ushort value = ParseUShort(WriteValueBox.Text, "Значение");
-            if (ConfirmWriteBox.IsChecked == true && MessageBox.Show($"Записать {value} (0x{value:X4}) в Holding Register {address} устройства Unit {GetUnit()}?", "Подтверждение записи", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            if (!ApproveWrite(6, address, new[] { value })) return;
             await WriteAsync(GetUnit(), 6, address, new[] { value }, CancellationToken.None);
             Log($"FC06: записан регистр {address} = {value} (0x{value:X4}).");
             await ReadBackAsync(address, 1);
@@ -478,18 +546,18 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (RegistersGrid.SelectedItem is not RegisterRow row) throw new InvalidOperationException("Выберите строку в таблице.");
+            if (RegistersGrid.SelectedItem is not RegisterRow row || row.Function != 3) throw new InvalidOperationException("Выберите строку Holding Registers FC03.");
             RegistersGrid.CommitEdit(DataGridEditingUnit.Cell, true);
             RegistersGrid.CommitEdit(DataGridEditingUnit.Row, true);
-            var selected = _rows.Where(r => r.Address >= row.Address).OrderBy(r => r.Address).ToList();
+            var selected = _rows.Where(r => r.Function == 3 && r.Address >= row.Address).OrderBy(r => r.Address).ToList();
             var contiguous = new List<RegisterRow> { selected[0] };
             for (int i = 1; i < selected.Count && contiguous.Count < 123; i++)
             {
                 if (selected[i].Address != contiguous[^1].Address + 1) break;
                 contiguous.Add(selected[i]);
             }
-            var values = contiguous.Select(r => r.RawValue).ToArray();
-            if (ConfirmWriteBox.IsChecked == true && MessageBox.Show($"Записать {values.Length} регистров начиная с {row.Address}?", "Подтверждение записи", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            var values = contiguous.Select(r => r.PendingValue).ToArray();
+            if (!ApproveWrite(16, row.Address, values)) return;
             await WriteAsync(GetUnit(), 16, row.Address, values, CancellationToken.None);
             Log($"FC16: записано {values.Length} регистров с адреса {row.Address}.");
             await ReadBackAsync(row.Address, (ushort)values.Length);
@@ -506,7 +574,7 @@ public partial class MainWindow : Window
             if (coilValue is not (0 or 1))
                 throw new ArgumentOutOfRangeException(nameof(WriteValueBox), "Для Coil укажите 0 (OFF) или 1 (ON).");
             bool on = coilValue == 1;
-            if (ConfirmWriteBox.IsChecked == true && MessageBox.Show($"Установить Coil {address} в {(on ? "ON" : "OFF")}?", "Подтверждение записи", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            if (!ApproveWrite(5, address, new[] { coilValue })) return;
             await WriteAsync(GetUnit(), 5, address, new[] { (ushort)(on ? 1 : 0) }, CancellationToken.None);
             Log($"FC05: Coil {address} = {(on ? "ON" : "OFF")}.");
             await ReadBackAsync(address, 1, 1);
@@ -562,98 +630,80 @@ public partial class MainWindow : Window
     {
         byte fc = function ?? 3;
         var values = await ReadAsync(GetUnit(), fc, address, quantity, CancellationToken.None);
-        for (int i = 0; i < values.Length; i++)
-        {
-            var row = _rows.FirstOrDefault(r => r.Address == address + i);
-            if (row is null) { row = new RegisterRow { Address = (ushort)(address + i) }; _rows.Add(row); }
-            row.RawValue = values[i]; row.Quality = "OK";
-        }
-        SortRows();
-        UpdateInterpretedValues();
+        ApplyReadValues(address, values, fc);
     }
 
     private async void RefreshSelected_Click(object sender, RoutedEventArgs e)
     {
+        if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите текущую операцию.");return;}
         if (RegistersGrid.SelectedItem is not RegisterRow row) return;
-        try { await ReadBackAsync(row.Address, 1, (byte)(FunctionBox.SelectedIndex + 1)); Log($"Повторное чтение адреса {row.Address} выполнено."); }
+        try { await ReadBackAsync(row.Address, 1, row.Function); Log($"Повторное чтение адреса {row.Address} выполнено."); }
         catch (Exception ex) { row.Quality = "Ошибка"; Log("Повторное чтение: " + ex.Message); }
     }
 
+    private sealed record RtuFound(string Com,int Baud,Parity Parity,int Data,StopBits Stop,byte Unit,string Details)
+    {
+        public override string ToString()=>$"{Com} {Baud}/{Parity}/{Data}/{Stop}, ID {Unit}: {Details}";
+    }
+    private void RtuFound_Selected(object sender, SelectionChangedEventArgs e)
+    {
+        if(_scanCts!=null || _operationGate.CurrentCount==0 || RtuFoundList.SelectedItem is not RtuFound hit)return;
+        Disconnect();ProtocolBox.SelectedIndex=0;
+        if(ComBox.Items.Contains(hit.Com))ComBox.SelectedItem=hit.Com;
+        BaudBox.SelectedItem=BaudBox.Items.Cast<ComboBoxItem>().FirstOrDefault(x=>x.Content.ToString()==hit.Baud.ToString());
+        if(BaudBox.SelectedItem==null){BaudBox.Items.Add(new ComboBoxItem{Content=hit.Baud.ToString()});BaudBox.SelectedIndex=BaudBox.Items.Count-1;}
+        ParityBox.SelectedIndex=hit.Parity==Parity.Even?1:hit.Parity==Parity.Odd?2:0;
+        DataBitsBox.SelectedIndex=hit.Data-5;StopBitsBox.SelectedIndex=hit.Stop==StopBits.Two?1:0;UnitBox.Text=hit.Unit.ToString();
+    }
+    private int _rtuCursor;
+    private string _rtuSignature = "";
     private async void ScanRtu_Click(object sender, RoutedEventArgs e)
     {
-        if (IsTcp) { Log("Автопоиск скорости предназначен для RTU. Для TCP используйте поиск регистров и адресов."); return; }
-        _scanCts?.Cancel();
-        _scanCts = new CancellationTokenSource();
-        var ct = _scanCts.Token;
+        if (IsTcp) { Log("Выберите RTU."); return; }
+        if (_scanCts != null || _operationGate.CurrentCount==0) { Log("Сначала остановите текущую операцию."); return; }
         try
         {
-            if (string.IsNullOrWhiteSpace(ComBox.SelectedItem?.ToString())) throw new InvalidOperationException("Выберите COM-порт.");
-            int preferredBaud = int.Parse(((ComboBoxItem)BaudBox.SelectedItem).Content.ToString()!, CultureInfo.InvariantCulture);
-            int[] baudRates = new[] { preferredBaud, 9600, 19200, 38400, 57600, 115200, 4800, 2400, 1200 }.Distinct().ToArray();
-            var formats = new[] { (Parity.None, 8, StopBits.One), (Parity.Even, 8, StopBits.One), (Parity.Odd, 8, StopBits.One), (Parity.None, 8, StopBits.Two), (Parity.Even, 8, StopBits.Two), (Parity.Odd, 8, StopBits.Two), (Parity.Even, 7, StopBits.One), (Parity.Odd, 7, StopBits.One) };
-            int hits = 0;
-            byte? firstHitUnit = null;
-            Log("Начат автопоиск RTU. Сначала проверяется выбранная скорость; поиск остановится после полного прохода ID на первой рабочей комбинации.");
-            foreach (int baud in baudRates)
+            var com=ComBox.SelectedItem?.ToString() ?? throw new InvalidOperationException("Выберите COM-порт.");
+            var rates=RtuBaudsBox.Text.Split(',').Select(x=>ParseInt(x.Trim(),300,1000000,"Скорость")).Distinct().ToArray();
+            var parities=RtuParitiesBox.Text.Split(',').Select(x=>Enum.Parse<Parity>(x.Trim(),true)).Distinct().ToArray();
+            if(rates.Length==0 || rates.Length>16 || parities.Length==0 || parities.Any(x=>x is not (Parity.None or Parity.Even or Parity.Odd)))throw new FormatException("Выберите None, Even, Odd.");
+            int unitFrom=ParseInt(RtuUnitFromBox.Text,1,247,"ID от"),unitTo=ParseInt(RtuUnitToBox.Text,unitFrom,247,"ID до");
+            byte fc=(byte)(FunctionBox.SelectedIndex+1); if(fc<3)throw new InvalidOperationException("Для автопоиска выберите FC03 или FC04.");
+            ushort address=GetStart();
+            int data=int.Parse(((ComboBoxItem)DataBitsBox.SelectedItem).Content.ToString()!);
+            var stop=StopBitsBox.SelectedIndex==1?StopBits.Two:StopBits.One;
+            var plan=(from baud in rates from parity in parities from unit in Enumerable.Range(unitFrom,unitTo-unitFrom+1) select (baud,parity,unit)).ToArray();
+            string signature=$"{com}|{string.Join(',',rates)}|{string.Join(',',parities)}|{unitFrom}|{unitTo}|{fc}|{address}|{data}|{stop}";
+            if(signature!=_rtuSignature || RtuResumeBox.IsChecked!=true || _rtuCursor>=plan.Length){_rtuCursor=0;RtuFoundList.Items.Clear();}
+            _rtuSignature=signature;
+            using var cts=new CancellationTokenSource();_scanCts=cts;SetBusy(true);Disconnect();_transportContext=ConnectionContext;
+            try
             {
-                foreach (var format in formats)
+                for(;_rtuCursor<plan.Length;_rtuCursor++)
                 {
-                    ct.ThrowIfCancellationRequested();
-                    int hitsBeforeFormat = hits;
-                    Disconnect();
-                    try
-                    {
-                        var com = ComBox.SelectedItem!.ToString()!;
-                        _serial = new SerialPort(com, baud, format.Item1, format.Item2, format.Item3) { ReadTimeout = 180, WriteTimeout = 180 };
-                        _serial.Open();
-                        for (byte unit = 1; unit <= 247; unit++)
-                        {
-                            ct.ThrowIfCancellationRequested();
-                            try
-                            {
-                                var response = await ReadAsync(unit, 3, 0, 1, ct);
-                                hits++;
-                                firstHitUnit ??= unit;
-                                Log($"НАЙДЕНО: COM={com}, {baud}, {format.Item1}, {format.Item2}{(format.Item3 == StopBits.One ? "N1" : "N2")}, Slave ID={unit}; FC03 адрес 0 = {response[0]}.");
-                            }
-                            catch (OperationCanceledException) { throw; }
-                            catch (Exception ex) when (ex.Message.Contains("Modbus exception", StringComparison.OrdinalIgnoreCase))
-                            {
-                                // A valid exception response still proves the baud/format/Slave ID combination is alive.
-                                hits++;
-                                firstHitUnit ??= unit;
-                                Log($"ОТВЕТ ЕСТЬ: COM={com}, {baud}, {format.Item1}, {format.Item2}{(format.Item3 == StopBits.One ? "N1" : "N2")}, Slave ID={unit}; адрес 0 отклонён устройством: {ex.Message}");
-                            }
-                            catch { }
-                        }
-                        Disconnect();
+                    cts.Token.ThrowIfCancellationRequested();var item=plan[_rtuCursor];
+                    if(_serial==null || !_serial.IsOpen || _serial.BaudRate!=item.baud || _serial.Parity!=item.parity){
+                        Disconnect();_serial=new SerialPort(com,item.baud,item.parity,data,stop){ReadTimeout=250,WriteTimeout=250};_serial.Open();
                     }
-                    catch (OperationCanceledException) { throw; }
-                    catch (Exception ex) { Log($"Параметры {baud}/{format.Item1}/{format.Item2}/{format.Item3}: {ex.Message}"); Disconnect(); }
-
-                    if (hits > hitsBeforeFormat)
-                    {
-                        BaudBox.SelectedItem = BaudBox.Items.Cast<ComboBoxItem>().FirstOrDefault(item => item.Content?.ToString() == baud.ToString(CultureInfo.InvariantCulture));
-                        ParityBox.SelectedIndex = format.Item1 switch { Parity.Even => 1, Parity.Odd => 2, _ => 0 };
-                        DataBitsBox.SelectedIndex = format.Item2 - 5;
-                        StopBitsBox.SelectedIndex = format.Item3 == StopBits.Two ? 1 : 0;
-                        if (firstHitUnit.HasValue) UnitBox.Text = firstHitUnit.Value.ToString(CultureInfo.InvariantCulture);
-                        Log($"Параметры обнаружены: скорость {baud}, {format.Item1}, {format.Item2} бит, {format.Item3}. Перебор других скоростей/форматов остановлен; найденные ID перечислены выше.");
-                        break;
-                    }
+                    StatusText.Text=$"RTU {_rtuCursor+1}/{plan.Length}: {item.baud}/{item.parity}, ID {item.unit}";
+                    try{await ReadAsync((byte)item.unit,fc,address,1,cts.Token);Log($"НАЙДЕНО {com} {item.baud}/{item.parity}/{data}/{stop}, ID {item.unit}");RtuFoundList.Items.Add(new RtuFound(com,item.baud,item.parity,data,stop,(byte)item.unit,"чтение подтверждено"));}
+                    catch(ModbusDeviceException ex){Log($"НАЙДЕНО {com} {item.baud}/{item.parity}, ID {item.unit}: {ex.Message}");RtuFoundList.Items.Add(new RtuFound(com,item.baud,item.parity,data,stop,(byte)item.unit,ex.Message));}
+                    catch(OperationCanceledException) when(cts.IsCancellationRequested){throw;}
+                    catch(Exception ex){Log($"RTU ID {item.unit}: {ex.Message}");}
                 }
-                if (hits > 0) break;
+                Log("Автопоиск RTU завершён.");
             }
-            Log($"Автопоиск RTU завершён. Найдено ответов: {hits}.");
+            catch(OperationCanceledException){Log($"RTU остановлен на {_rtuCursor+1}/{plan.Length}; можно продолжить.");}
+            finally{_scanCts=null;Disconnect();SetBusy(false);}
         }
-        catch (OperationCanceledException) { Log("Автопоиск остановлен пользователем."); }
-        catch (Exception ex) { Log("Ошибка автопоиска: " + ex.Message); }
-        finally { Disconnect(); StatusText.Text = "Автопоиск завершён"; }
+        catch(Exception ex){Log("Автопоиск: "+ex.Message);}
     }
 
     private async void ScanRegisters_Click(object sender, RoutedEventArgs e)
     {
-        _scanCts?.Cancel(); _scanCts = new CancellationTokenSource();
+        if (_scanCts != null || _operationGate.CurrentCount==0) { Log("Сначала остановите текущую операцию."); return; }
+        _scanCts = new CancellationTokenSource();
+        SetBusy(true);
         var ct = _scanCts.Token;
         try
         {
@@ -668,6 +718,7 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException) { Log("Поиск регистров остановлен."); }
         catch (Exception ex) { Log("Ошибка поиска регистров: " + ex.Message); }
+        finally { _scanCts?.Dispose(); _scanCts=null; SetBusy(false); }
     }
 
     private async Task<int> ScanRegisterRangeAsync(byte unit, byte function, int start, int quantity, CancellationToken ct)
@@ -681,14 +732,8 @@ public partial class MainWindow : Window
             try
             {
                 var values = await ReadAsync(unit, function, (ushort)(start + offset), (ushort)count, ct);
-                for (int i = 0; i < values.Length; i++)
-                {
-                    ushort addr = (ushort)(start + offset + i);
-                    var row = _rows.FirstOrDefault(r => r.Address == addr);
-                    if (row is null) { row = new RegisterRow { Address = addr }; _rows.Add(row); }
-                    row.RawValue = values[i]; row.Quality = "OK";
-                    found++;
-                }
+                ApplyReadValues((ushort)(start+offset), values, function);
+                found+=values.Length;
                 Log($"FC{function}: диапазон {start + offset}–{start + offset + count - 1} отвечает.");
             }
             catch (OperationCanceledException) { throw; }
@@ -702,8 +747,9 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    var row = _rows.FirstOrDefault(r => r.Address == start + offset);
+                    var row = _rows.FirstOrDefault(r => r.Address == start + offset && r.Function==function);
                     if (row is null) { row = new RegisterRow { Address = (ushort)(start + offset) }; _rows.Add(row); }
+                    row.Function=function;
                     row.Quality = "No response / exception";
                     Log($"Адрес {start + offset}: {ex.Message}");
                 }
@@ -716,70 +762,50 @@ public partial class MainWindow : Window
 
     private async void ScanTcpNetwork_Click(object sender, RoutedEventArgs e)
     {
-        _scanCts?.Cancel();
-        _scanCts = new CancellationTokenSource();
-        var ct = _scanCts.Token;
+        if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите текущую операцию.");return;}
         try
         {
-            if (!IPAddress.TryParse(TcpScanStartBox.Text.Trim(), out var startIp) || startIp.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
-                throw new FormatException("Начальный адрес должен быть IPv4.");
-            if (!IPAddress.TryParse(TcpScanEndBox.Text.Trim(), out var endIp) || endIp.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
-                throw new FormatException("Конечный адрес должен быть IPv4.");
-            int port = ParseInt(TcpScanPortBox.Text, 1, 65535, "Порт сканирования");
-            int timeout = ParseInt(TcpScanTimeoutBox.Text, 100, 5000, "Тайм-аут");
-            uint start = IpToUInt(startIp), end = IpToUInt(endIp);
-            if (end < start) throw new InvalidOperationException("Конечный IP должен быть не меньше начального.");
-            if (end - start > 4095) throw new InvalidOperationException("За один запуск разрешено сканировать максимум 4096 адресов.");
+            if(!IPAddress.TryParse(TcpScanStartBox.Text,out var startIp) || startIp.AddressFamily!=AddressFamily.InterNetwork || !IPAddress.TryParse(TcpScanEndBox.Text,out var endIp) || endIp.AddressFamily!=AddressFamily.InterNetwork)throw new FormatException("Нужны адреса IPv4.");
+            uint start=IpToUInt(startIp),end=IpToUInt(endIp);
+            if(end<start || end-start>4095)throw new FormatException("Диапазон: 1–4096 адресов.");
+            var ports=TcpScanPortBox.Text.Split(',').Select(x=>ParseInt(x.Trim(),1,65535,"Порт")).Distinct().ToArray();
+            if(ports.Length>16)throw new FormatException("Не более 16 портов.");
+            int timeout=ParseInt(TcpScanTimeoutBox.Text,100,5000,"Тайм-аут");
+            byte unit=GetUnit(),fc=(byte)(FunctionBox.SelectedIndex+1);ushort address=GetStart();
+            if(fc<3)throw new InvalidOperationException("Для поиска выберите FC03 или FC04.");
             TcpScanResultsList.Items.Clear();
-            StatusText.Text = "Поиск TCP-узлов…";
-            Log($"TCP-поиск: {startIp}–{endIp}, порт {port}, тайм-аут {timeout} мс.");
-            int found = 0, checkedCount = 0;
-            using var gate = new SemaphoreSlim(32);
-            var tasks = new List<Task>();
-            for (uint address = start; address <= end; address++)
+            using var cts=new CancellationTokenSource();_scanCts=cts;SetBusy(true);
+            int checkedCount=0,found=0;long total=((long)end-start+1)*ports.Length;
+            try
             {
-                uint current = address;
-                await gate.WaitAsync(ct);
-                tasks.Add(Task.Run(async () =>
+                // Bounded batches keep cancellation/cleanup deterministic; each probe owns its socket.
+                for(ulong current=start;current<=end;current++)
                 {
-                    try
+                    foreach(var port in ports)
                     {
-                        ct.ThrowIfCancellationRequested();
-                        using var client = new TcpClient { NoDelay = true };
-                        try
-                        {
-                            await client.ConnectAsync(UIntToIp(current), port, ct).AsTask().WaitAsync(TimeSpan.FromMilliseconds(timeout), ct);
-                            string endpoint = $"{UIntToIp(current)}:{port}";
-                            await Dispatcher.InvokeAsync(() => TcpScanResultsList.Items.Add(endpoint));
-                            Interlocked.Increment(ref found);
+                        cts.Token.ThrowIfCancellationRequested();
+                        string host=UIntToIp((uint)current).ToString();
+                        try{
+                            string? result=await TcpProbe.RunAsync(host,port,unit,fc,address,timeout,cts.Token);
+                            if(result!=null){TcpScanResultsList.Items.Add($"{host}:{port} | {result}");found++;}
                         }
-                        catch (OperationCanceledException) { throw; }
-                        catch { /* Closed or filtered port: not a hit. */ }
-                        finally { Interlocked.Increment(ref checkedCount); }
+                        catch(OperationCanceledException) when(cts.IsCancellationRequested){throw;}
+                        catch{ }
+                        checkedCount++;StatusText.Text=$"TCP {checkedCount}/{total}, Modbus: {found}";
                     }
-                    finally { gate.Release(); }
-                }, ct));
-                if (address == uint.MaxValue) break;
+                }
+                Log($"TCP завершён: {found} подтверждённых устройств, {checkedCount} проверок.");
             }
-            await Task.WhenAll(tasks);
-            StatusText.Text = $"TCP-поиск завершён · найдено {found}";
-            Log($"TCP-поиск завершён: найдено открытых узлов {found} из {checkedCount} проверенных IP.");
+            catch(OperationCanceledException){Log($"TCP остановлен: {checkedCount}/{total}.");}
+            finally{_scanCts=null;SetBusy(false);}
         }
-        catch (OperationCanceledException)
-        {
-            StatusText.Text = "TCP-поиск остановлен";
-            Log("TCP-поиск остановлен пользователем.");
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = "Ошибка TCP-поиска";
-            Log("TCP-поиск: " + ex.Message);
-        }
+        catch(Exception ex){Log("TCP-поиск: "+ex.Message);}
     }
 
     private void TcpScanResultsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (TcpScanResultsList.SelectedItem is not string endpoint) return;
+        if (_scanCts!=null || _operationGate.CurrentCount==0 || TcpScanResultsList.SelectedItem is not string selectedEndpoint) return;
+        string endpoint=selectedEndpoint.Split('|')[0].Trim();
         int separator = endpoint.LastIndexOf(':');
         if (separator <= 0 || !int.TryParse(endpoint[(separator + 1)..], out int port)) return;
         HostBox.Text = endpoint[..separator];
