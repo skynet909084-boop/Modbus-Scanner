@@ -583,7 +583,7 @@ public partial class MainWindow : Window
             if (!ApproveWrite(6, address, new[] { value })) return;
             await WriteAsync(GetUnit(), 6, address, new[] { value }, CancellationToken.None);
             Log($"FC06: записан регистр {address} = {value} (0x{value:X4}).");
-            await ReadBackAsync(address, 1);
+            await ReadBackAsync(address, 1, expected: new[] { value });
         }
         catch (Exception ex) { Log("Ошибка записи FC06: " + ex.Message); }
     }
@@ -606,7 +606,7 @@ public partial class MainWindow : Window
             if (!ApproveWrite(16, row.Address, values)) return;
             await WriteAsync(GetUnit(), 16, row.Address, values, CancellationToken.None);
             Log($"FC16: записано {values.Length} регистров с адреса {row.Address}.");
-            await ReadBackAsync(row.Address, (ushort)values.Length);
+            await ReadBackAsync(row.Address, (ushort)values.Length, expected: values);
         }
         catch (Exception ex) { Log("Ошибка записи FC16: " + ex.Message); }
     }
@@ -623,7 +623,7 @@ public partial class MainWindow : Window
             if (!ApproveWrite(5, address, new[] { coilValue })) return;
             await WriteAsync(GetUnit(), 5, address, new[] { (ushort)(on ? 1 : 0) }, CancellationToken.None);
             Log($"FC05: Coil {address} = {(on ? "ON" : "OFF")}.");
-            await ReadBackAsync(address, 1, 1);
+            await ReadBackAsync(address, 1, 1, new[] { coilValue });
         }
         catch (Exception ex) { Log("Ошибка записи FC05: " + ex.Message); }
     }
@@ -672,11 +672,30 @@ public partial class MainWindow : Window
             throw new IOException($"Подтверждение записи не совпало: адрес={echoedAddress}, значение/количество={echoedValueOrCount}; ожидалось адрес={address}, значение/количество={expectedEcho}.");
     }
 
-    private async Task ReadBackAsync(ushort address, ushort quantity, byte? function = null)
+    private async Task ReadBackAsync(ushort address, ushort quantity, byte? function = null, ushort[]? expected = null)
     {
         byte fc = function ?? 3;
-        var values = await ReadAsync(GetUnit(), fc, address, quantity, CancellationToken.None);
-        ApplyReadValues(address, values, fc);
+        try
+        {
+            var values = await ReadAsync(GetUnit(), fc, address, quantity, CancellationToken.None);
+            ApplyReadValues(address, values, fc);
+            if (expected is not null)
+            {
+                bool match = values.SequenceEqual(expected);
+                string requested = string.Join(", ", expected.Select(v => $"{v} (0x{v:X4})"));
+                string actual = string.Join(", ", values.Select(v => $"{v} (0x{v:X4})"));
+                Log($"Проверка записи {(match ? "PASS" : "MISMATCH")}: FC{fc:D2}, адрес {address}, запрошено [{requested}], прочитано [{actual}].");
+                if (!match)
+                    MessageBox.Show($"Запись не подтверждена повторным чтением!\\nАдрес: {address}\\nЗапрошено: {requested}\\nПрочитано: {actual}",
+                        "Modbus: несовпадение", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        catch (Exception ex) when (expected is not null)
+        {
+            Log($"Проверка записи READ ERROR: FC{fc:D2}, адрес {address}: {ex.Message}");
+            MessageBox.Show($"Устройство ответило на запись, но проверить значение не удалось: {ex.Message}",
+                "Modbus: проверка записи", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private async void RefreshSelected_Click(object sender, RoutedEventArgs e)
