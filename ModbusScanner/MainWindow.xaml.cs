@@ -1052,13 +1052,17 @@ public partial class MainWindow : Window
                 .SelectMany(n => n.GetIPProperties().UnicastAddresses
                     .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork &&
                                 a.IPv4Mask is not null)
-                    .Select(a => (Adapter: n.Name, Address: a.Address, Mask: a.IPv4Mask!)))
+                    .Select(a => (Adapter: n.Name, Address: a.Address, Mask: a.IPv4Mask!, Gateway: n.GetIPProperties().GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork))))
                 .Where(a => !IPAddress.IsLoopback(a.Address) &&
                             !a.Address.ToString().StartsWith("169.254.", StringComparison.Ordinal))
+                .OrderByDescending(a => a.Gateway)
+                .ThenBy(a => a.Adapter, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (candidates.Count == 0)
                 throw new InvalidOperationException("Активный IPv4-адаптер не найден. Укажите диапазон вручную.");
             var selected = candidates[0];
+            if (candidates.Count > 1)
+                Log($"Найдено {candidates.Count} активных IPv4-адресов. Выбран адаптер с приоритетом шлюза: {selected.Adapter} ({selected.Address}). Другие сети можно задать вручную.");
             uint mask = IpToUInt(selected.Mask);
             uint network = IpToUInt(selected.Address) & mask;
             uint broadcast = network | ~mask;
