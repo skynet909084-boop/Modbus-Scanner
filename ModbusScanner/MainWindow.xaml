@@ -217,6 +217,8 @@
        <ComboBoxItem Content="ABCD"/><ComboBoxItem Content="BADC"/><ComboBoxItem Content="CDAB"/><ComboBoxItem Content="DCBA"/>
       </ComboBox>
       <TextBox x:Name="Write32ValueBox" Width="115" Text="0" ToolTip="32-битное значение, десятичный формат"/>
+      <Button Content="Экспорт карты JSON" Click="ExportRegisterMap_Click" ToolTip="Сохранить описания регистров в отдельную карту"/>
+      <Button Content="Импорт карты JSON" Click="ImportRegisterMap_Click" ToolTip="Загрузить карту регистров без изменения параметров соединения"/>
       <Button Content="Записать 32-бит (FC16)" Click="Write32_Click" ToolTip="Запись двух последовательных holding-регистров с подтверждением"/>
       <Button Content="Записать регистр (FC06)" Background="#FF7A5125" Foreground="White" Click="WriteRegister_Click"/>
       <Button Content="Записать несколько (FC16)" Background="#FF9C6124" Foreground="White" Click="WriteMultiple_Click"/>
