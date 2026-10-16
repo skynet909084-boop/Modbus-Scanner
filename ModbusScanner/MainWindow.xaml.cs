@@ -172,6 +172,8 @@ public partial class MainWindow : Window
         if (root is TabItem tab && tab.Header is string header) _originalLabels[tab] = header;
         if (root is TextBlock label) _originalLabels[label] = label.Text;
         if (root is CheckBox check && check.Content is string checkText) _originalLabels[check] = checkText;
+        if (root is System.Windows.Controls.Primitives.HeaderedContentControl headered && headered.Header is string title && root is not TabItem) _originalLabels[headered] = title;
+        if (root is System.Windows.Controls.Primitives.HeaderedItemsControl headeredItems && headeredItems.Header is string itemsTitle) _originalLabels[headeredItems] = itemsTitle;
         // Logical traversal also includes content of tabs that have never been opened.
         foreach (object child in LogicalTreeHelper.GetChildren(root))
             if (child is DependencyObject element) CaptureLabels(element);
@@ -189,6 +191,8 @@ public partial class MainWindow : Window
                 case TabItem tab: tab.Header = value; break;
                 case TextBlock label: label.Text = value; break;
                 case CheckBox check: check.Content = value; break;
+                case System.Windows.Controls.Primitives.HeaderedContentControl headered: headered.Header = value; break;
+                case System.Windows.Controls.Primitives.HeaderedItemsControl headeredItems: headeredItems.Header = value; break;
             }
         }
     }
