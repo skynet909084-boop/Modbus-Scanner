@@ -72,10 +72,11 @@ public partial class MainWindow : Window
                 (profile.BaudRate == null && (profile.BaudIndex < 0 || profile.BaudIndex >= BaudBox.Items.Count)) || profile.ParityIndex < 0 || profile.ParityIndex >= ParityBox.Items.Count ||
                 profile.DataBitsIndex < 0 || profile.DataBitsIndex >= DataBitsBox.Items.Count || profile.StopBitsIndex < 0 || profile.StopBitsIndex >= StopBitsBox.Items.Count)
                 throw new InvalidDataException("В профиле содержатся недопустимые индексы настроек.");
-            if (_scanCts != null) throw new InvalidOperationException("Сначала остановите текущую операцию.");
+            if (_scanCts != null || _operationGate.CurrentCount==0) throw new InvalidOperationException("Сначала остановите текущую операцию.");
             var definitions = profile.Registers ?? new();
             if (definitions.Any(r => r.Function is < 1 or > 4 || !double.IsFinite(r.Scale) || !double.IsFinite(r.Offset)) || definitions.Select(r => (r.Function,r.Address)).Distinct().Count() != definitions.Count)
                 throw new InvalidDataException("Некорректные определения регистров.");
+            if(profile.BaudRate.HasValue && (profile.BaudRate.Value<300 || profile.BaudRate.Value>1000000))throw new InvalidDataException("Некорректная скорость.");
             Disconnect();
             _rows.Clear();
             foreach (var d in definitions) _rows.Add(new RegisterRow { Address=d.Address, Function=d.Function, Description=d.Name, Unit=d.Unit, Scale=d.Scale, Offset=d.Offset });
@@ -151,7 +152,7 @@ public partial class MainWindow : Window
         StatusText.Text = tcp ? "Режим Modbus TCP" : "Режим Modbus RTU";
     }
 
-    private void RefreshCom_Click(object sender, RoutedEventArgs e) => RefreshComPorts();
+    private void RefreshCom_Click(object sender, RoutedEventArgs e) { if(_scanCts==null && _operationGate.CurrentCount==1)RefreshComPorts(); }
 
     private void RefreshComPorts()
     {
@@ -164,11 +165,10 @@ public partial class MainWindow : Window
 
     private async void Connect_Click(object sender, RoutedEventArgs e)
     {
-        if(_scanCts!=null){Log("Сначала остановите операцию.");return;}
+        if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите операцию.");return;}
         try
         {
             if (_connected) { Disconnect(); return; }
-            await EnsureConnectedAsync();
             var unit = GetUnit();
             var fc = (byte)(FunctionBox.SelectedIndex + 1);
             var values = await ReadAsync(unit, fc, GetStart(), 1, CancellationToken.None);
@@ -316,7 +316,6 @@ public partial class MainWindow : Window
         if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите текущую операцию.");return;}
         try
         {
-            await EnsureConnectedAsync();
             var values = await ReadAsync(GetUnit(), (byte)(FunctionBox.SelectedIndex + 1), GetStart(), GetQuantity(), CancellationToken.None);
             ApplyReadValues(GetStart(), values, (byte)(FunctionBox.SelectedIndex + 1));
             Log($"Прочитано {values.Length} значений с адреса {GetStart()} (FC{FunctionBox.SelectedIndex + 1}).");
@@ -648,7 +647,7 @@ public partial class MainWindow : Window
     }
     private void RtuFound_Selected(object sender, SelectionChangedEventArgs e)
     {
-        if(_scanCts!=null || RtuFoundList.SelectedItem is not RtuFound hit)return;
+        if(_scanCts!=null || _operationGate.CurrentCount==0 || RtuFoundList.SelectedItem is not RtuFound hit)return;
         Disconnect();ProtocolBox.SelectedIndex=0;
         if(ComBox.Items.Contains(hit.Com))ComBox.SelectedItem=hit.Com;
         BaudBox.SelectedItem=BaudBox.Items.Cast<ComboBoxItem>().FirstOrDefault(x=>x.Content.ToString()==hit.Baud.ToString());
@@ -805,7 +804,7 @@ public partial class MainWindow : Window
 
     private void TcpScanResultsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_scanCts!=null || TcpScanResultsList.SelectedItem is not string selectedEndpoint) return;
+        if (_scanCts!=null || _operationGate.CurrentCount==0 || TcpScanResultsList.SelectedItem is not string selectedEndpoint) return;
         string endpoint=selectedEndpoint.Split('|')[0].Trim();
         int separator = endpoint.LastIndexOf(':');
         if (separator <= 0 || !int.TryParse(endpoint[(separator + 1)..], out int port)) return;

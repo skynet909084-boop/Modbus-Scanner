@@ -152,7 +152,7 @@ public partial class MainWindow
     {
         EnsureDataContext();
         if(EnableWritesBox.IsChecked!=true){Log("Запись выключена. Включите разрешение записи.");return false;}
-        if(_scanCts!=null){Log("Перед записью остановите поиск/мониторинг.");return false;}
+        if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Перед записью остановите поиск/мониторинг и дождитесь обмена.");return false;}
         string preview=string.Join("\n",values.Select((v,i)=>{
             var old=_rows.FirstOrDefault(r=>r.Function==(function==5?1:3)&&r.Address==start+i && r.Quality=="OK");
             return $"{start+i}: {(old==null?"неизвестно":old.RawValue.ToString())} → {v} (0x{v:X4})"+(old==null?"":"; "+RegisterAnalysis.ChangedBits(old.RawValue,v));
