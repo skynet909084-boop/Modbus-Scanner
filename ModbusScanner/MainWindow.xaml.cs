@@ -1136,13 +1136,14 @@ public partial class MainWindow : Window
                 IsHitTestVisible = false
             };
             LanMapCanvas.Children.Add(line);
-            AddMapCard(ip, kind, x, y, cardWidth, cardHeight, Brushes.DarkSlateGray, ip);
+            string dns = fields.Length > 1 ? fields[1].Trim() : "";
+            AddMapCard(ip, kind, x, y, cardWidth, cardHeight, Brushes.DarkSlateGray, ip, dns + "\n" + details);
         }
         if (hosts.Count == 0)
             AddMapCard("Нет результатов", "Сначала выполните IP-поиск", 325, 150, 250, 74, Brushes.DarkSlateGray);
     }
 
-    private void AddMapCard(string heading, string detail, double x, double y, double width, double height, Brush background, string? deviceIp = null)
+    private void AddMapCard(string heading, string detail, double x, double y, double width, double height, Brush background, string? deviceIp = null, string? extraDetails = null)
     {
         var panel = new StackPanel { Margin = new Thickness(10), VerticalAlignment = VerticalAlignment.Center };
         panel.Children.Add(new TextBlock { Text = heading, FontWeight = FontWeights.Bold, Foreground = Brushes.White, TextTrimming = TextTrimming.CharacterEllipsis });
@@ -1156,7 +1157,7 @@ public partial class MainWindow : Window
         if (deviceIp is not null)
         {
             border.Cursor = System.Windows.Input.Cursors.Hand;
-            border.ToolTip = "Нажмите, чтобы выбрать устройство для подключения Modbus TCP";
+            border.ToolTip = $"Нажмите, чтобы выбрать устройство для Modbus TCP.\\n{extraDetails}".Replace("\\n", "\n");
             border.MouseLeftButtonUp += (_, _) => SelectLanHost(deviceIp);
         }
         Canvas.SetLeft(border, x);
