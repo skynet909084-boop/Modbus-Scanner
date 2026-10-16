@@ -17,6 +17,8 @@ public sealed class RegisterRow : INotifyPropertyChanged
     public void SetNext(ushort? value){_next=value;OnPropertyChanged(nameof(FloatABCD));OnPropertyChanged(nameof(FloatBADC));OnPropertyChanged(nameof(FloatCDAB));OnPropertyChanged(nameof(FloatDCBA));}
     public byte Function { get; set; } = 3;
     public string Unit { get; set; } = "";
+    public string DataType { get; set; } = "UInt16";
+    public bool Writable { get; set; }
     public double Scale { get=>_scale; set { if(!double.IsFinite(value))return; _scale=value; OnPropertyChanged(); OnPropertyChanged(nameof(ScaledValue)); } }
     public double Offset { get=>_offset; set { if(!double.IsFinite(value))return; _offset=value; OnPropertyChanged(); OnPropertyChanged(nameof(ScaledValue)); } }
     public double ScaledValue => RawValue*Scale+Offset;
