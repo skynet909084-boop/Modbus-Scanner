@@ -209,6 +209,15 @@
       </ComboBox>
       <Button Content="Бит = 1" Click="SetBit_Click" ToolTip="Изменить подготовленное значение, без отправки устройству"/>
       <Button Content="Бит = 0" Click="ClearBit_Click" ToolTip="Изменить подготовленное значение, без отправки устройству"/>
+      <TextBlock Text="32-бит" Margin="8,0,3,0" VerticalAlignment="Center"/>
+      <ComboBox x:Name="Write32TypeBox" Width="90" SelectedIndex="0">
+       <ComboBoxItem Content="Float32"/><ComboBoxItem Content="Int32"/><ComboBoxItem Content="UInt32"/>
+      </ComboBox>
+      <ComboBox x:Name="Write32OrderBox" Width="76" SelectedIndex="0" ToolTip="Порядок байтов в двух регистрах">
+       <ComboBoxItem Content="ABCD"/><ComboBoxItem Content="BADC"/><ComboBoxItem Content="CDAB"/><ComboBoxItem Content="DCBA"/>
+      </ComboBox>
+      <TextBox x:Name="Write32ValueBox" Width="115" Text="0" ToolTip="32-битное значение, десятичный формат"/>
+      <Button Content="Записать 32-бит (FC16)" Click="Write32_Click" ToolTip="Запись двух последовательных holding-регистров с подтверждением"/>
       <Button Content="Записать регистр (FC06)" Background="#FF7A5125" Foreground="White" Click="WriteRegister_Click"/>
       <Button Content="Записать несколько (FC16)" Background="#FF9C6124" Foreground="White" Click="WriteMultiple_Click"/>
       <Button Content="Записать Coil (FC05)" Background="#FF9C6124" Foreground="White" Click="WriteCoil_Click"/>
