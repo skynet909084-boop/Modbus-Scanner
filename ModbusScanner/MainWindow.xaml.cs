@@ -107,23 +107,44 @@ public partial class MainWindow : Window
             ? $"0x{value:X4}"
             : value.ToString(CultureInfo.InvariantCulture);
 
+    private ushort ParseWriteValue()
+    {
+        var input = WriteValueBox.Text.Trim();
+        if (WriteValueFormatBox.SelectedIndex == 1)
+        {
+            if (input.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) input = input[2..];
+            if (ushort.TryParse(input, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var hex))
+                return hex;
+            throw new FormatException("HEX: введите 0000–FFFF (префикс 0x необязателен).");
+        }
+        return ParseUShort(input, "Значение");
+    }
+
     private void WriteValueFormatBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (WriteValueBox is null || WriteValueFormatBox is null) return;
         var input = WriteValueBox.Text.Trim();
         if (input.Length == 0) return;
-        // Parse the old display text before converting. HEX entries carry the 0x prefix.
-        if (!ushort.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
-            && !(input.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-                 && ushort.TryParse(input[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value)))
+        var previousHex = e.RemovedItems.Count > 0 &&
+            e.RemovedItems[0] is ComboBoxItem previous &&
+            string.Equals(previous.Content?.ToString(), "HEX", StringComparison.OrdinalIgnoreCase);
+        if (previousHex && input.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            input = input[2..];
+        bool valid = previousHex
+            ? ushort.TryParse(input, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out _)
+            : ushort.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
+        if (!valid)
         {
-            MessageBox.Show("Введите значение 0–65535 (HEX с префиксом 0x) перед сменой формата.",
+            MessageBox.Show("Исправьте значение 0–65535 / 0000–FFFF перед сменой формата.",
                 "Формат записи", MessageBoxButton.OK, MessageBoxImage.Warning);
             WriteValueFormatBox.SelectionChanged -= WriteValueFormatBox_SelectionChanged;
-            WriteValueFormatBox.SelectedIndex = WriteValueFormatBox.SelectedIndex == 1 ? 0 : 1;
+            WriteValueFormatBox.SelectedIndex = previousHex ? 1 : 0;
             WriteValueFormatBox.SelectionChanged += WriteValueFormatBox_SelectionChanged;
             return;
         }
+        ushort value = previousHex
+            ? ushort.Parse(input, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture)
+            : ushort.Parse(input, NumberStyles.Integer, CultureInfo.InvariantCulture);
         WriteValueBox.Text = FormatWriteValue(value);
     }
 
@@ -558,7 +579,7 @@ public partial class MainWindow : Window
         try
         {
             ushort address = ParseUShort(WriteAddressBox.Text, "Адрес записи");
-            ushort value = ParseUShort(WriteValueBox.Text, "Значение");
+            ushort value = ParseWriteValue();
             if (!ApproveWrite(6, address, new[] { value })) return;
             await WriteAsync(GetUnit(), 6, address, new[] { value }, CancellationToken.None);
             Log($"FC06: записан регистр {address} = {value} (0x{value:X4}).");
@@ -595,7 +616,7 @@ public partial class MainWindow : Window
         try
         {
             ushort address = ParseUShort(WriteAddressBox.Text, "Адрес Coil");
-            ushort coilValue = ParseUShort(WriteValueBox.Text, "Значение Coil");
+            ushort coilValue = ParseWriteValue();
             if (coilValue is not (0 or 1))
                 throw new ArgumentOutOfRangeException(nameof(WriteValueBox), "Для Coil укажите 0 (OFF) или 1 (ON).");
             bool on = coilValue == 1;
