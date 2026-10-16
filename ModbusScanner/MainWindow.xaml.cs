@@ -162,6 +162,48 @@ public partial class MainWindow : Window
         }
     }
 
+    private static readonly Dictionary<string, string> EnglishRuntimeMessages = new(StringComparer.Ordinal)
+    {
+        ["Тестовый TCP симулятор остановлен."]="Test TCP simulator stopped.",
+        ["Тестовый Modbus TCP сервер: 127.0.0.1:1502. Для подключения выберите TCP, Host 127.0.0.1, Port 1502."]=
+            "Test Modbus TCP server: 127.0.0.1:1502. Select TCP, host 127.0.0.1 and port 1502 to connect.",
+        ["Modbus Scanner запущен. Запись по умолчанию требует подтверждения."]=
+            "Modbus Scanner started. Writing requires confirmation by default.",
+        ["Последние настройки подключения восстановлены (подключение не запускается автоматически)."]=
+            "Previous connection settings restored (no automatic connection).",
+        ["Сначала остановите операцию."]="Stop the current operation first.",
+        ["Сначала остановите текущую операцию."]="Stop the current operation first.",
+        ["Мониторинг остановлен."]="Monitoring stopped.",
+        ["Автопоиск RTU завершён."]="RTU auto discovery completed.",
+        ["Поиск регистров остановлен."]="Register scan stopped.",
+        ["Выберите RTU."]="Select RTU.",
+        ["Диагностика уже выполняется."]="A diagnostic test is already running.",
+        ["Отчёт диагностики пуст."]="The diagnostic report is empty.",
+        ["Не удалось восстановить настройки: "]="Could not restore settings: ",
+        ["Не удалось сохранить настройки: "]="Could not save settings: ",
+        ["Ошибка экспорта карты: "]="Register map export error: ",
+        ["Ошибка импорта карты: "]="Register map import error: ",
+        ["Ошибка чтения: "]="Read error: ",
+        ["Ошибка записи FC06: "]="FC06 write error: ",
+        ["Ошибка записи FC16: "]="FC16 write error: ",
+        ["Ошибка записи FC05: "]="FC05 write error: ",
+        ["Ошибка записи 32-бит: "]="32-bit write error: ",
+        ["Ошибка поиска регистров: "]="Register scan error: ",
+        ["Подключение/проверка: "]="Connection/test: ",
+        ["Повторное чтение: "]="Read-back: ",
+        ["Симулятор TCP: "]="TCP simulator: "
+    };
+
+    private string TranslateRuntime(string value)
+    {
+        if (LanguageBox?.SelectedItem is not ComboBoxItem { Tag: "en" }) return value;
+        if (EnglishRuntimeMessages.TryGetValue(value, out var translated)) return translated;
+        foreach (var pair in EnglishRuntimeMessages)
+            if (value.StartsWith(pair.Key, StringComparison.Ordinal))
+                return pair.Value + value[pair.Key.Length..];
+        return value;
+    }
+
     private void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded || LanguageBox.SelectedItem is not ComboBoxItem selected) return;
