@@ -16,6 +16,29 @@ namespace ModbusScanner;
 public partial class MainWindow : Window
 {
     private readonly ObservableCollection<RegisterRow> _rows = new();
+    private ModbusTcpSimulator? _simulator;
+
+    private async void ToggleSimulator_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_simulator is not null)
+            {
+                await _simulator.DisposeAsync();
+                _simulator = null;
+                SimulatorButton.Content = "Запустить TCP симулятор";
+                Log("Тестовый TCP симулятор остановлен.");
+                return;
+            }
+            var simulator = new ModbusTcpSimulator(1502);
+            simulator.Start();
+            _simulator = simulator;
+            SimulatorButton.Content = "Остановить TCP симулятор";
+            Log("Тестовый Modbus TCP сервер: 127.0.0.1:1502. Для подключения выберите TCP, Host 127.0.0.1, Port 1502.");
+        }
+        catch (Exception ex) { Log("Симулятор TCP: " + ex.Message); }
+    }
+
     private readonly object _serialGate = new();
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly SemaphoreSlim _tcpGate = new(1, 1);
