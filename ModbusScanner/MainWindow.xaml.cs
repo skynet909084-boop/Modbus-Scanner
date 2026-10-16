@@ -606,6 +606,43 @@ public partial class MainWindow : Window
         catch (Exception ex) { Log("Ошибка записи FC06: " + ex.Message); }
     }
 
+    private async void Write32_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            ushort address = ParseUShort(WriteAddressBox.Text, "Адрес 32-битного значения");
+            if (address == ushort.MaxValue) throw new ArgumentOutOfRangeException(nameof(address), "Нужно два последовательных регистра.");
+            if (RegistersGrid.SelectedItem is not RegisterRow row || row.Function != 3 || row.Address != address)
+                throw new InvalidOperationException("Выберите первый Holding Register FC03 с указанным адресом.");
+            if (!_rows.Any(r => r.Function == 3 && r.Address == address + 1))
+                throw new InvalidOperationException("Сначала прочитайте оба соседних Holding Registers.");
+            uint bits = Write32TypeBox.SelectedIndex switch
+            {
+                0 => BitConverter.SingleToUInt32Bits(float.Parse(Write32ValueBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                1 => unchecked((uint)int.Parse(Write32ValueBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture)),
+                2 => uint.Parse(Write32ValueBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture),
+                _ => throw new InvalidOperationException("Выберите тип 32-битного значения.")
+            };
+            if (Write32TypeBox.SelectedIndex == 0 && !float.IsFinite(BitConverter.UInt32BitsToSingle(bits)))
+                throw new FormatException("NaN и Infinity запрещены для записи Float32.");
+            byte a = (byte)(bits >> 24), b = (byte)(bits >> 16), cc = (byte)(bits >> 8), d = (byte)bits;
+            byte[] bytes = Write32OrderBox.SelectedIndex switch
+            {
+                0 => new[] { a, b, cc, d },
+                1 => new[] { b, a, d, cc },
+                2 => new[] { cc, d, a, b },
+                3 => new[] { d, cc, b, a },
+                _ => throw new InvalidOperationException("Выберите порядок байтов.")
+            };
+            ushort[] values = { (ushort)((bytes[0] << 8) | bytes[1]), (ushort)((bytes[2] << 8) | bytes[3]) };
+            if (!ApproveWrite(16, address, values)) return;
+            await WriteAsync(GetUnit(), 16, address, values, CancellationToken.None);
+            Log($"FC16: 32-бит {Write32TypeBox.Text} {Write32ValueBox.Text}, порядок {Write32OrderBox.Text}, адреса {address}–{address + 1}, значения 0x{values[0]:X4} 0x{values[1]:X4}.");
+            await ReadBackAsync(address, 2, expected: values);
+        }
+        catch (Exception ex) { Log("Ошибка записи 32-бит: " + ex.Message); }
+    }
+
     private async void WriteMultiple_Click(object sender, RoutedEventArgs e)
     {
         try
