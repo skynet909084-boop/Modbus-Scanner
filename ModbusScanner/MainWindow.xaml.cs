@@ -782,7 +782,7 @@ public partial class MainWindow : Window
                 string actual = string.Join(", ", values.Select(v => $"{v} (0x{v:X4})"));
                 Log($"Проверка записи {(match ? "PASS" : "MISMATCH")}: FC{fc:D2}, адрес {address}, запрошено [{requested}], прочитано [{actual}].");
                 if (!match)
-                    MessageBox.Show($"Запись не подтверждена повторным чтением!\\nАдрес: {address}\\nЗапрошено: {requested}\\nПрочитано: {actual}",
+                    MessageBox.Show($"Запись не подтверждена повторным чтением!\nАдрес: {address}\nЗапрошено: {requested}\nПрочитано: {actual}",
                         "Modbus: несовпадение", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
