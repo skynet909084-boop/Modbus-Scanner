@@ -102,11 +102,36 @@ public partial class MainWindow : Window
 
     private void ValueTypeBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateInterpretedValues();
 
+    private string FormatWriteValue(ushort value) =>
+        WriteValueFormatBox?.SelectedIndex == 1
+            ? $"0x{value:X4}"
+            : value.ToString(CultureInfo.InvariantCulture);
+
+    private void WriteValueFormatBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (WriteValueBox is null || WriteValueFormatBox is null) return;
+        var input = WriteValueBox.Text.Trim();
+        if (input.Length == 0) return;
+        // Parse the old display text before converting. HEX entries carry the 0x prefix.
+        if (!ushort.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+            && !(input.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+                 && ushort.TryParse(input[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value)))
+        {
+            MessageBox.Show("Введите значение 0–65535 (HEX с префиксом 0x) перед сменой формата.",
+                "Формат записи", MessageBoxButton.OK, MessageBoxImage.Warning);
+            WriteValueFormatBox.SelectionChanged -= WriteValueFormatBox_SelectionChanged;
+            WriteValueFormatBox.SelectedIndex = WriteValueFormatBox.SelectedIndex == 1 ? 0 : 1;
+            WriteValueFormatBox.SelectionChanged += WriteValueFormatBox_SelectionChanged;
+            return;
+        }
+        WriteValueBox.Text = FormatWriteValue(value);
+    }
+
     private void RegistersGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (RegistersGrid.SelectedItem is not RegisterRow row || WriteAddressBox is null || WriteValueBox is null) return;
         WriteAddressBox.Text = row.Address.ToString(CultureInfo.InvariantCulture);
-        WriteValueBox.Text = row.RawValue.ToString(CultureInfo.InvariantCulture);
+        WriteValueBox.Text = FormatWriteValue(row.RawValue);
     }
 
     private void UpdateInterpretedValues()
@@ -176,7 +201,7 @@ public partial class MainWindow : Window
             StatusText.Text = $"Связь подтверждена · Unit {unit}";
             StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
             Log($"Связь OK: Unit={unit}, FC={fc}, ответ получен.");
-            if (values.Length > 0) WriteValueBox.Text = values[0].ToString(CultureInfo.InvariantCulture);
+            if (values.Length > 0) WriteValueBox.Text = FormatWriteValue(values[0]);
         }
         catch (Exception ex)
         {
