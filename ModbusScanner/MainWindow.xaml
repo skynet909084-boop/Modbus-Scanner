@@ -351,6 +351,26 @@
       </TabControl>
     </StackPanel>
    </TabItem>
+   <TabItem Header="USB / RS-485 адаптеры">
+    <StackPanel Margin="14">
+     <TextBlock Text="Обнаружение USB / RS-485 преобразователей" FontWeight="Bold" FontSize="17" Margin="0,0,0,8"/>
+     <TextBlock Text="Определение чипа по VID/PID приблизительное. Наличие COM-порта не гарантирует работоспособность RS-485 линии." TextWrapping="Wrap" Margin="0,0,0,10"/>
+     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+      <Button Content="Обновить USB-адаптеры" Click="RefreshUsbAdapters_Click" Padding="12,6" Margin="0,0,8,0"/>
+      <Button Content="Выбрать COM для RTU" Click="UseUsbAdapter_Click" Padding="12,6"/>
+     </StackPanel>
+     <DataGrid x:Name="UsbAdaptersGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" Height="230" CanUserAddRows="False">
+      <DataGrid.Columns>
+       <DataGridTextColumn Header="COM-порт" Binding="{Binding Port}" Width="95"/>
+       <DataGridTextColumn Header="Чип / семейство" Binding="{Binding Chip}" Width="*"/>
+       <DataGridTextColumn Header="VID / PID" Binding="{Binding HardwareId}" Width="170"/>
+       <DataGridTextColumn Header="Состояние драйвера" Binding="{Binding DriverState}" Width="240"/>
+      </DataGrid.Columns>
+     </DataGrid>
+     <TextBlock Text="Драйверы устанавливаются в Windows, а не внутри программы. При отсутствии COM-порта откройте Диспетчер устройств и установите официальный драйвер производителя. Программа не устанавливает драйверы автоматически." TextWrapping="Wrap" Margin="0,12,0,8"/>
+     <TextBlock Text="Официальные драйверы: FTDI — ftdichip.com/drivers/vcp-drivers; WCH — wch.cn/downloads; Silicon Labs — silabs.com; Prolific — prolific.com.tw. Проверяйте точную модель и версию Windows." TextWrapping="Wrap"/>
+    </StackPanel>
+   </TabItem>
    <TabItem Header="Справка / О программе">
     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
       <StackPanel Orientation="Horizontal" Margin="0,0,0,10"><TextBlock Text="Язык / Language:" VerticalAlignment="Center" Margin="0,0,10,0"/><ComboBox x:Name="LanguageBox" Width="160" SelectionChanged="LanguageBox_SelectionChanged"><ComboBoxItem Content="Русский" Tag="ru"/><ComboBoxItem Content="English" Tag="en"/></ComboBox></StackPanel>
