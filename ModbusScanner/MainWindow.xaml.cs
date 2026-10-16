@@ -630,7 +630,14 @@ public partial class MainWindow : Window
         if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите операцию.");return;}
         try
         {
-            if (_connected) { Disconnect(); return; }
+            if (_connected)
+            {
+                Disconnect();
+                SetStatusText("Нет подтверждённой связи");
+                StatusText.Foreground = System.Windows.Media.Brushes.OrangeRed;
+                Log(UiText("Отключено пользователем.", "Disconnected by user."));
+                return;
+            }
             var unit = GetUnit();
             var fc = (byte)(FunctionBox.SelectedIndex + 1);
             var values = await ReadAsync(unit, fc, GetStart(), 1, CancellationToken.None);
