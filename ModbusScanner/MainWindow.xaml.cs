@@ -57,10 +57,48 @@ public partial class MainWindow : Window
         InitializeComponent();
         RegistersGrid.ItemsSource = _rows;
         RefreshComPorts();
+        RestoreLocalSettings();
         ProtocolBox_SelectionChanged(this, null!);
         Log("Modbus Scanner запущен. Запись по умолчанию требует подтверждения.");
     }
 
+
+    private sealed record LocalSettings(int Protocol, string Host, string Port, string Unit, int Function, string Address, string Quantity, string LanStart, string LanEnd);
+    private static string SettingsPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BloodSky", "ModbusScanner", "settings.json");
+
+    private void RestoreLocalSettings()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath)) return;
+            var settings = JsonSerializer.Deserialize<LocalSettings>(File.ReadAllText(SettingsPath));
+            if (settings is null || settings.Protocol is < 0 or > 1 || settings.Function is < 0 or > 3) return;
+            ProtocolBox.SelectedIndex = settings.Protocol;
+            HostBox.Text = settings.Host;
+            PortBox.Text = settings.Port;
+            UnitBox.Text = settings.Unit;
+            FunctionBox.SelectedIndex = settings.Function;
+            StartAddressBox.Text = settings.Address;
+            QuantityBox.Text = settings.Quantity;
+            LanStartBox.Text = settings.LanStart;
+            LanEndBox.Text = settings.LanEnd;
+            Log("Последние настройки подключения восстановлены (подключение не запускается автоматически).");
+        }
+        catch (Exception ex) { Log("Не удалось восстановить настройки: " + ex.Message); }
+    }
+
+    private void SaveLocalSettings()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
+            var settings = new LocalSettings(ProtocolBox.SelectedIndex, HostBox.Text, PortBox.Text,
+                UnitBox.Text, FunctionBox.SelectedIndex, StartAddressBox.Text, QuantityBox.Text,
+                LanStartBox.Text, LanEndBox.Text);
+            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex) { Log("Не удалось сохранить настройки: " + ex.Message); }
+    }
 
     private sealed record RegisterMapEntry(ushort Address, byte Function, string Name, string Unit, double Scale, double Offset, string DataType = "UInt16", bool Writable = false);
     private sealed record RegisterMapDocument(int Version, List<RegisterMapEntry> Registers);
@@ -1188,6 +1226,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        SaveLocalSettings();
         _scanCts?.Cancel();
         Disconnect();
         if (_simulator is not null)
