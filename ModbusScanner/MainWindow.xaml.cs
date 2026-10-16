@@ -1124,7 +1124,7 @@ public partial class MainWindow : Window
         int rows = (hosts.Count + columns - 1) / columns;
         LanMapCanvas.Width = width;
         LanMapCanvas.Height = Math.Max(300, 125 + rows * 110);
-        AddMapCard("Обнаруженные TCP-узлы", "Логическая группа — не коммутатор", 325, 12, 250, 68, Brushes.DarkSlateBlue);
+        AddMapCard($"Обнаружено: {hosts.Count}", "Логическая группа — не коммутатор", 325, 12, 250, 68, Brushes.DarkSlateBlue);
         for (int i = 0; i < hosts.Count; i++)
         {
             int col = i % columns, row = i / columns;
