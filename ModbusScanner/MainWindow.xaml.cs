@@ -641,16 +641,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string ExplainConnectionError(Exception ex)
+    private string ExplainConnectionError(Exception ex)
     {
         if (ex is TimeoutException || ex is OperationCanceledException)
-            return "Устройство не ответило вовремя. Проверьте IP/порт или COM, питание, Unit ID, параметры линии и доступность сети. Подробности: " + ex.Message;
+            return UiText("Устройство не ответило вовремя. Проверьте IP/порт или COM, питание, Unit ID, параметры линии и доступность сети. Подробности: ", "Device response timed out. Check IP/port or COM, power, Unit ID, line settings and network reachability. Details: ") + ex.Message;
         if (ex is SocketException socket)
-            return "Не удалось установить TCP-соединение. Проверьте IP-адрес, порт, сеть и настройки брандмауэра. Подробности: " + socket.Message;
+            return UiText("Не удалось установить TCP-соединение. Проверьте IP-адрес, порт, сеть и настройки брандмауэра. Подробности: ", "TCP connection failed. Check IP address, port, network and firewall settings. Details: ") + socket.Message;
         if (ex is UnauthorizedAccessException)
-            return "Нет доступа к COM-порту. Возможно, порт занят другой программой. Подробности: " + ex.Message;
+            return UiText("Нет доступа к COM-порту. Возможно, порт занят другой программой. Подробности: ", "COM port access denied. Another application may be using the port. Details: ") + ex.Message;
         if (ex is IOException)
-            return "Ошибка связи с устройством. Проверьте кабель, соединение и настройки порта. Подробности: " + ex.Message;
+            return UiText("Ошибка связи с устройством. Проверьте кабель, соединение и настройки порта. Подробности: ", "Device communication error. Check cabling, connection and port settings. Details: ") + ex.Message;
         return ex.Message;
     }
 
