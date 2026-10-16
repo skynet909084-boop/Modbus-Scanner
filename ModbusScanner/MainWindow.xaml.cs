@@ -73,6 +73,7 @@ public partial class MainWindow : Window
     private static readonly Dictionary<string, string> EnglishLabels = new(StringComparer.Ordinal)
     {
         ["Быстрый старт: для безопасной проверки без оборудования запустите TCP-симулятор, выберите TCP, Host 127.0.0.1, порт 1502, Unit ID 1, FC03, адрес 0 и количество 10. Нажмите «Подключить / проверить», затем «Читать диапазон». Запись в реальное оборудование не требуется."]="Quick start: to test safely without hardware, start the TCP simulator, select TCP, host 127.0.0.1, port 1502, Unit ID 1, FC03, address 0 and quantity 10. Select Connect / test, then Read range. No writing to real equipment is required.",
+        ["Безопасность: перед записью остановите мониторинг, поиск регистров или IP-сканирование. Программа блокирует запись во время активного поиска или мониторинга. После записи проверьте значение повторным чтением; при несовпадении проверьте адрес, функцию, тип данных и документацию устройства."]="Safety: stop monitoring, register discovery or IP scanning before writing. The app blocks writes during active scanning or monitoring. After writing, verify by reading back; if values differ, check the address, function, data type and device manual.",
         ["Разрешить запись"]="Enable writing",
         ["Продолжить остановленный поиск (в текущем сеансе)"]="Resume interrupted scan (this session)",
         ["К записи FC16"]="FC16 write",
