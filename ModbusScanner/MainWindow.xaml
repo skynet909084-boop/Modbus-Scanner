@@ -195,7 +195,11 @@
       <TextBlock Text="Выбранный адрес" VerticalAlignment="Center" Margin="4"/>
       <TextBox x:Name="WriteAddressBox" Width="80" Text="0"/>
       <TextBlock Text="Новое значение" VerticalAlignment="Center" Margin="4"/>
-      <TextBox x:Name="WriteValueBox" Width="100" Text="0"/>
+      <TextBox x:Name="WriteValueBox" Width="100" Text="0" ToolTip="Значение 0–65535 в выбранном формате"/>
+      <TextBlock Text="Формат" VerticalAlignment="Center" Margin="6,0,3,0"/>
+      <ComboBox x:Name="WriteValueFormatBox" Width="75" SelectedIndex="0" SelectionChanged="WriteValueFormatBox_SelectionChanged" ToolTip="DEC — десятичный, HEX — шестнадцатеричный">
+       <ComboBoxItem Content="DEC"/><ComboBoxItem Content="HEX"/>
+      </ComboBox>
       <Button Content="Записать регистр (FC06)" Background="#FF7A5125" Foreground="White" Click="WriteRegister_Click"/>
       <Button Content="Записать несколько (FC16)" Background="#FF9C6124" Foreground="White" Click="WriteMultiple_Click"/>
       <Button Content="Записать Coil (FC05)" Background="#FF9C6124" Foreground="White" Click="WriteCoil_Click"/>
