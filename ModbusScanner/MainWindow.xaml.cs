@@ -1086,6 +1086,8 @@ public partial class MainWindow : Window
 
     private async Task WriteAsync(byte unit, byte function, ushort address, ushort[] values, CancellationToken ct)
     {
+        if (_scanCts is not null)
+            throw new InvalidOperationException(UiText("Остановите мониторинг или поиск перед записью в устройство.", "Stop monitoring or scanning before writing to the device."));
         if (function is not (5 or 6 or 16))
             throw new ArgumentOutOfRangeException(nameof(function), "Поддерживаются только FC05, FC06 и FC16 для записи.");
         if (values is null || values.Length == 0)
