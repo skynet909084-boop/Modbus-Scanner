@@ -198,6 +198,26 @@ public partial class MainWindow : Window
             }
         }
         if (_simulator is not null) SimulatorButton.Content = UiText("Остановить TCP симулятор");
+        if (EnglishStatusText.ContainsKey(StatusText.Text) || EnglishStatusText.ContainsValue(StatusText.Text))
+        {
+            var original = EnglishStatusText.FirstOrDefault(pair => pair.Value == StatusText.Text).Key ?? StatusText.Text;
+            SetStatusText(original);
+        }
+    }
+
+    private static readonly Dictionary<string, string> EnglishStatusText = new(StringComparer.Ordinal)
+    {
+        ["Профиль загружен · подключение не проверено"]="Profile loaded · connection not tested",
+        ["Нет подтверждённой связи"]="Connection not verified",
+        ["Мониторинг активен"]="Monitoring active",
+        ["Мониторинг · ошибка связи"]="Monitoring · connection error",
+        ["Мониторинг остановлен"]="Monitoring stopped",
+        ["Ошибка чтения"]="Read error",
+    };
+    private void SetStatusText(string russian)
+    {
+        StatusText.Text = LanguageBox?.SelectedItem is ComboBoxItem { Tag: "en" } && EnglishStatusText.TryGetValue(russian, out var english)
+            ? english : russian;
     }
 
     private static readonly Dictionary<string, string> EnglishRuntimeMessages = new(StringComparer.Ordinal)
@@ -406,7 +426,7 @@ public partial class MainWindow : Window
             StartAddressBox.Text = profile.StartAddress ?? "0"; QuantityBox.Text = profile.Quantity ?? "100";
             ValueTypeBox.SelectedIndex = profile.ValueTypeIndex; MonitorIntervalBox.Text = profile.MonitorInterval ?? "1000";
             Log("Профиль загружен: " + dialog.FileName);
-            StatusText.Text = "Профиль загружен · подключение не проверено";
+            SetStatusText("Профиль загружен · подключение не проверено");
         }
         catch (Exception ex) { Log("Не удалось загрузить профиль: " + ex.Message); }
     }
@@ -555,7 +575,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Нет подтверждённой связи";
+            SetStatusText("Нет подтверждённой связи");
             StatusText.Foreground = System.Windows.Media.Brushes.OrangeRed;
             Log("Подключение/проверка: " + ExplainConnectionError(ex));
             Disconnect();
@@ -632,7 +652,7 @@ public partial class MainWindow : Window
         SetBusy(true);
         var ct = cts.Token;
         Log($"Мониторинг запущен: FC{FunctionBox.SelectedIndex + 1}, адрес {GetStart()}, количество {GetQuantity()}, период {interval} мс.");
-        StatusText.Text = "Мониторинг активен";
+        SetStatusText("Мониторинг активен");
         try
         {
             while (!ct.IsCancellationRequested)
@@ -653,7 +673,7 @@ public partial class MainWindow : Window
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
                 catch (Exception ex)
                 {
-                    StatusText.Text = "Мониторинг · ошибка связи";
+                    SetStatusText("Мониторинг · ошибка связи");
                     StatusText.Foreground = System.Windows.Media.Brushes.OrangeRed;
                     Log($"Мониторинг: {ex.Message}; повторное подключение…");
                     Disconnect();
@@ -671,7 +691,7 @@ public partial class MainWindow : Window
             {
                 _scanCts = null;
                 SetBusy(false);
-                StatusText.Text = "Мониторинг остановлен";
+                SetStatusText("Мониторинг остановлен");
                 StatusText.Foreground = System.Windows.Media.Brushes.LightGray;
                 Log("Мониторинг остановлен.");
             }
@@ -709,7 +729,7 @@ public partial class MainWindow : Window
             Log($"Прочитано {values.Length} значений с адреса {GetStart()} (FC{FunctionBox.SelectedIndex + 1}).");
             StatusText.Text = $"Прочитано: {values.Length}";
         }
-        catch (Exception ex) { Log("Ошибка чтения: " + ex.Message); StatusText.Text = "Ошибка чтения"; }
+        catch (Exception ex) { Log("Ошибка чтения: " + ex.Message); SetStatusText("Ошибка чтения"); }
     }
 
     private async Task<ushort[]> ReadAsync(byte unit, byte function, ushort start, ushort quantity, CancellationToken ct)
