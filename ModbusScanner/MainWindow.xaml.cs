@@ -948,6 +948,91 @@ public partial class MainWindow : Window
         return found;
     }
 
+    private static readonly (int Port, string Service)[] LanPorts =
+    {
+        (80, "HTTP / веб-интерфейс"), (443, "HTTPS / веб-интерфейс"),
+        (22, "SSH / сервер или сетевое устройство"), (23, "Telnet / промышленное или сетевое устройство"),
+        (502, "Modbus TCP / ПЛК или шлюз"), (8080, "HTTP альтернативный"),
+        (554, "RTSP / возможная IP-камера"), (3389, "RDP / Windows"),
+        (445, "SMB / Windows или NAS"), (9100, "JetDirect / возможный принтер")
+    };
+
+    private async void ScanLan_Click(object sender, RoutedEventArgs e)
+    {
+        if (_scanCts != null || _operationGate.CurrentCount == 0)
+        {
+            Log("Остановите текущую операцию перед IP-поиском.");
+            return;
+        }
+        try
+        {
+            if (!IPAddress.TryParse(LanStartBox.Text.Trim(), out var first) ||
+                !IPAddress.TryParse(LanEndBox.Text.Trim(), out var last) ||
+                first.AddressFamily != AddressFamily.InterNetwork || last.AddressFamily != AddressFamily.InterNetwork)
+                throw new FormatException("Введите корректные IPv4-адреса.");
+            uint start = IpToUInt(first), end = IpToUInt(last);
+            if (end < start || end - start > 1023)
+                throw new FormatException("Допустимый диапазон: от 1 до 1024 адресов.");
+            int timeout = ParseInt(LanTimeoutBox.Text, 100, 3000, "Тайм-аут");
+            LanResultsList.Items.Clear();
+            using var cts = new CancellationTokenSource();
+            _scanCts = cts;
+            SetBusy(true);
+            try
+            {
+                using var gate = new SemaphoreSlim(16);
+                int completed = 0, found = 0;
+                var tasks = Enumerable.Range(0, (int)(end - start + 1)).Select(async offset =>
+                {
+                    await gate.WaitAsync(cts.Token);
+                    try
+                    {
+                        cts.Token.ThrowIfCancellationRequested();
+                        string ip = UIntToIp(start + (uint)offset).ToString();
+                        var open = new List<string>();
+                        foreach (var (port, service) in LanPorts)
+                        {
+                            cts.Token.ThrowIfCancellationRequested();
+                            try
+                            {
+                                using var client = new TcpClient();
+                                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                                deadline.CancelAfter(timeout);
+                                await client.ConnectAsync(ip, port, deadline.Token);
+                                open.Add($"{port} ({service})");
+                            }
+                            catch (OperationCanceledException) when (cts.IsCancellationRequested) { throw; }
+                            catch (Exception) { /* Filtered port or timeout; not proof host is absent. */ }
+                        }
+                        if (open.Count > 0)
+                        {
+                            string hostName = "не определено";
+                            try
+                            {
+                                var dns = await Dns.GetHostEntryAsync(ip).WaitAsync(TimeSpan.FromMilliseconds(timeout), cts.Token);
+                                hostName = dns.HostName;
+                            }
+                            catch (OperationCanceledException) when (cts.IsCancellationRequested) { throw; }
+                            catch (Exception) { }
+                            Interlocked.Increment(ref found);
+                            await Dispatcher.InvokeAsync(() =>
+                                LanResultsList.Items.Add($"{ip} | DNS: {hostName} | TCP: {string.Join(", ", open)}"));
+                        }
+                        int done = Interlocked.Increment(ref completed);
+                        if (done % 10 == 0 || done == (int)(end - start + 1))
+                            await Dispatcher.InvokeAsync(() => StatusText.Text = $"IP-поиск {done}/{end - start + 1}, узлов с TCP: {Volatile.Read(ref found)}");
+                    }
+                    finally { gate.Release(); }
+                }).ToArray();
+                await Task.WhenAll(tasks);
+                Log($"IP-поиск завершён: найдено {found} адресов с отвечающими TCP-службами.");
+            }
+            catch (OperationCanceledException) { Log("IP-поиск остановлен."); }
+            finally { _scanCts = null; SetBusy(false); }
+        }
+        catch (Exception ex) { Log("IP-поиск: " + ex.Message); }
+    }
+
     private async void ScanTcpNetwork_Click(object sender, RoutedEventArgs e)
     {
         if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите текущую операцию.");return;}
