@@ -200,6 +200,15 @@
       <ComboBox x:Name="WriteValueFormatBox" Width="75" SelectedIndex="0" SelectionChanged="WriteValueFormatBox_SelectionChanged" ToolTip="DEC — десятичный, HEX — шестнадцатеричный">
        <ComboBoxItem Content="DEC"/><ComboBoxItem Content="HEX"/>
       </ComboBox>
+      <TextBlock Text="Бит" Margin="6,0,3,0" VerticalAlignment="Center"/>
+      <ComboBox x:Name="BitIndexBox" Width="50" SelectedIndex="0" ToolTip="Номер бита от 0 до 15">
+       <ComboBoxItem Content="0"/><ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/>
+       <ComboBoxItem Content="4"/><ComboBoxItem Content="5"/><ComboBoxItem Content="6"/><ComboBoxItem Content="7"/>
+       <ComboBoxItem Content="8"/><ComboBoxItem Content="9"/><ComboBoxItem Content="10"/><ComboBoxItem Content="11"/>
+       <ComboBoxItem Content="12"/><ComboBoxItem Content="13"/><ComboBoxItem Content="14"/><ComboBoxItem Content="15"/>
+      </ComboBox>
+      <Button Content="Бит = 1" Click="SetBit_Click" ToolTip="Изменить подготовленное значение, без отправки устройству"/>
+      <Button Content="Бит = 0" Click="ClearBit_Click" ToolTip="Изменить подготовленное значение, без отправки устройству"/>
       <Button Content="Записать регистр (FC06)" Background="#FF7A5125" Foreground="White" Click="WriteRegister_Click"/>
       <Button Content="Записать несколько (FC16)" Background="#FF9C6124" Foreground="White" Click="WriteMultiple_Click"/>
       <Button Content="Записать Coil (FC05)" Background="#FF9C6124" Foreground="White" Click="WriteCoil_Click"/>
