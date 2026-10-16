@@ -1030,6 +1030,48 @@ public partial class MainWindow : Window
         return ip;
     }
 
+    private async void DiagnoseTcp_Click(object sender, RoutedEventArgs e)
+    {
+        if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
+        try
+        {
+            IPAddress address = GetDiagnosisAddress();
+            int port = ParseInt(DiagPortBox.Text, 1, 65535, "TCP-порт");
+            using var cts = new CancellationTokenSource();
+            _diagnosisCts = cts;
+            DiagnosisOutputBox.Clear();
+            AppendDiagnosis($"Проверка TCP {address}:{port} — 4 подключения, тайм-аут 1500 мс");
+            int successes = 0;
+            var times = new List<long>();
+            for (int i = 1; i <= 4; i++)
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                using var client = new TcpClient();
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                deadline.CancelAfter(TimeSpan.FromMilliseconds(1500));
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                try
+                {
+                    await client.ConnectAsync(address, port, deadline.Token);
+                    timer.Stop();
+                    successes++;
+                    times.Add(timer.ElapsedMilliseconds);
+                    AppendDiagnosis($"{i}: соединение установлено за {timer.ElapsedMilliseconds} мс");
+                }
+                catch (OperationCanceledException) when (cts.IsCancellationRequested) { throw; }
+                catch (OperationCanceledException) { AppendDiagnosis($"{i}: тайм-аут соединения"); }
+                catch (SocketException ex) { AppendDiagnosis($"{i}: TCP {ex.SocketErrorCode}"); }
+            }
+            AppendDiagnosis($"Успешно: {successes}/4");
+            if (times.Count > 0)
+                AppendDiagnosis($"Время TCP подключения мин/сред/макс: {times.Min()}/{times.Average():F1}/{times.Max()} мс");
+            AppendDiagnosis("Успешный TCP connect не подтверждает исправность Modbus или другого прикладного протокола.");
+        }
+        catch (OperationCanceledException) { AppendDiagnosis("Диагностика остановлена."); }
+        catch (Exception ex) { AppendDiagnosis("Ошибка TCP-диагностики: " + ex.Message); }
+        finally { _diagnosisCts = null; }
+    }
+
     private async void DiagnosePing_Click(object sender, RoutedEventArgs e)
     {
         if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
