@@ -646,6 +646,38 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ExportUsbDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var adapters = UsbSerialDiscovery.Find();
+            var dialog = new SaveFileDialog
+            {
+                Filter = "Text (*.txt)|*.txt",
+                FileName = "modbus-usb-diagnostics.txt"
+            };
+            if (dialog.ShowDialog() != true) return;
+            var report = new StringBuilder();
+            report.AppendLine("Modbus Scanner — USB / RS-485 diagnostics");
+            report.AppendLine("Generated: " + DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture));
+            report.AppendLine("OS: " + Environment.OSVersion);
+            report.AppendLine("Selected protocol: " + (IsTcp ? "TCP" : "RTU"));
+            report.AppendLine("Selected COM: " + (ComBox.SelectedItem?.ToString() ?? "(none)"));
+            report.AppendLine("Detected ports: " + adapters.Count);
+            foreach (var adapter in adapters)
+                report.AppendLine($"{adapter.Port} | {adapter.Chip} | {adapter.HardwareId} | {adapter.DriverState}");
+            report.AppendLine();
+            report.AppendLine("Notes: Chip family is inferred from VID/PID. COM availability does not prove RS-485 electrical communication.");
+            report.AppendLine("Driver versions and physical A/B wiring are not validated by this report.");
+            File.WriteAllText(dialog.FileName, report.ToString(), new UTF8Encoding(false));
+            Log(UiText("Отчёт USB сохранён: ", "USB diagnostic report saved: ") + dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            Log(UiText("Ошибка экспорта USB: ", "USB export failed: ") + ex.Message);
+        }
+    }
+
     private void UseUsbAdapter_Click(object sender, RoutedEventArgs e)
     {
         if (_scanCts is not null || _operationGate.CurrentCount == 0)
