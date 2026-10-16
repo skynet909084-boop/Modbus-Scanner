@@ -67,6 +67,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         RegistersGrid.ItemsSource = _rows;
         RefreshComPorts();
+        RefreshUsbAdapters();
         RefreshLanAdapters();
         RestoreLocalSettings();
         InitializeLanguage();
@@ -618,6 +619,44 @@ public partial class MainWindow : Window
     }
 
     private void RefreshCom_Click(object sender, RoutedEventArgs e) { if(_scanCts==null && _operationGate.CurrentCount==1)RefreshComPorts(); }
+
+    private void RefreshUsbAdapters_Click(object sender, RoutedEventArgs e) => RefreshUsbAdapters();
+
+    private void RefreshUsbAdapters()
+    {
+        try
+        {
+            UsbAdaptersGrid.ItemsSource = UsbSerialDiscovery.Find();
+            Log(UiText("Список USB / COM адаптеров обновлён.", "USB / COM adapter list refreshed."));
+        }
+        catch (Exception ex)
+        {
+            Log(UiText("Ошибка поиска USB-адаптеров: ", "USB adapter discovery failed: ") + ex.Message);
+        }
+    }
+
+    private void UseUsbAdapter_Click(object sender, RoutedEventArgs e)
+    {
+        if (_scanCts is not null || _operationGate.CurrentCount == 0)
+        {
+            Log(UiText("Сначала остановите текущую операцию.", "Stop the current operation first."));
+            return;
+        }
+        if (UsbAdaptersGrid.SelectedItem is not UsbSerialDiscovery.Adapter adapter)
+        {
+            Log(UiText("Выберите адаптер в таблице.", "Select an adapter in the table."));
+            return;
+        }
+        RefreshComPorts();
+        if (!ComBox.Items.Contains(adapter.Port))
+        {
+            Log(UiText("Выбранный COM-порт недоступен. Проверьте драйвер и подключение.", "Selected COM port is unavailable. Check its driver and connection."));
+            return;
+        }
+        ProtocolBox.SelectedIndex = 0;
+        ComBox.SelectedItem = adapter.Port;
+        Log(UiText("Выбран Modbus RTU, порт ", "Selected Modbus RTU, port ") + adapter.Port);
+    }
 
     private void RefreshComPorts()
     {
