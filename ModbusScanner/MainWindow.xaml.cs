@@ -60,6 +60,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         RegistersGrid.ItemsSource = _rows;
         RefreshComPorts();
+        RefreshLanAdapters();
         RestoreLocalSettings();
         ProtocolBox_SelectionChanged(this, null!);
         Log("Modbus Scanner запущен. Запись по умолчанию требует подтверждения.");
