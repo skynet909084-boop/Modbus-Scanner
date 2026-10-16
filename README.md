@@ -6,13 +6,18 @@
 
 ## Скачать программу
 
-- **[Стабильный релиз v1.1.0](https://github.com/skynet909084-boop/Modbus-Scanner/releases/tag/v1.1.0)** — опубликованная версия для Windows x64.
-- **[Все релизы](https://github.com/skynet909084-boop/Modbus-Scanner/releases)** — здесь появится v1.2.0 после публикации GitHub Release.
-- **[Сборки GitHub Actions](https://github.com/skynet909084-boop/Modbus-Scanner/actions)** — сборки исходников, в том числе текущей основной ветки. Артефакты Actions доступны ограниченное время.
+- **[Последний релиз Windows x64](https://github.com/skynet909084-boop/Modbus-Scanner/releases/latest)** — скачайте архив `Modbus-Scanner-Windows-x64.zip` в разделе **Assets**.
+- **[Все опубликованные версии](https://github.com/skynet909084-boop/Modbus-Scanner/releases)** — архив релизов, включая предыдущие стабильные версии.
+- **[Проверочные сборки GitHub Actions](https://github.com/skynet909084-boop/Modbus-Scanner/actions)** — для проверки кода до публикации релиза; артефакты хранятся ограниченное время.
 
-Для опубликованной v1.1.0 откройте **Assets**, скачайте `Modbus-Scanner-Windows-x64.zip`, распакуйте и запустите `ModbusScanner.exe`. Для тестовой сборки из Actions откройте успешный запуск и скачайте его артефакт (может потребоваться вход в GitHub).
+Распакуйте Windows-архив и запустите `ModbusScanner.exe`. Программа предназначена для Windows x64. Проверяйте номер версии на странице релиза: наличие изменений в `main` само по себе не означает, что GitHub Release уже опубликован.
 
-> **Статус v1.2.0:** изменения включены в `main` через PR #4, Windows CI прошёл успешно. **Официальный релиз с тегом v1.2.0 пока не подтверждён как опубликованный.** Не путайте исходный код в `main` с опубликованным архивом в Releases.
+### Интерфейс v1.2.1
+
+- **Компактное верхнее меню** для разделов «Регистры», «Поиск TCP», «Снимки / изменения», «График / история», «Автопоиск», «IP-сканер», «USB / RS-485», «Справка».
+- **Регулируемый журнал обмена**: перетащите горизонтальную границу над журналом вверх или вниз, чтобы изменить высоту панели.
+- Общие настройки подключения и статус соединения остаются доступными при переключении разделов.
+- Изменения интерфейса прошли автоматическую сборку Windows x64 и тест локального Modbus TCP-симулятора: [проверка PR #6](https://github.com/skynet909084-boop/Modbus-Scanner/actions/runs/38887579127). Проверка вручную на реальном Windows-экране и оборудовании остаётся отдельным этапом.
 
 ## Возможности
 
@@ -65,7 +70,7 @@
 dotnet publish .\ModbusScanner\ModbusScanner.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-Проверки и материалы: [GitHub Actions](https://github.com/skynet909084-boop/Modbus-Scanner/actions) · [PR #4](https://github.com/skynet909084-boop/Modbus-Scanner/pull/4) · [Чек-лист v1.2.0](docs/RELEASE_CHECKLIST_v1.2.md) · [Заметки к v1.2.0](docs/RELEASE_NOTES_v1.2_RC.md) · [CHANGELOG](CHANGELOG.md).
+Проверки и материалы: [Изменения интерфейса PR #6](https://github.com/skynet909084-boop/Modbus-Scanner/pull/6) · [GitHub Actions](https://github.com/skynet909084-boop/Modbus-Scanner/actions) · [PR #4](https://github.com/skynet909084-boop/Modbus-Scanner/pull/4) · [Чек-лист v1.2.0](docs/RELEASE_CHECKLIST_v1.2.md) · [Заметки к v1.2.0](docs/RELEASE_NOTES_v1.2_RC.md) · [CHANGELOG](CHANGELOG.md).
 
 ## Безопасность и ограничения
 
