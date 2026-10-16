@@ -62,10 +62,109 @@ public partial class MainWindow : Window
         RefreshComPorts();
         RefreshLanAdapters();
         RestoreLocalSettings();
+        InitializeLanguage();
         ProtocolBox_SelectionChanged(this, null!);
         Log("Modbus Scanner запущен. Запись по умолчанию требует подтверждения.");
     }
 
+
+    private readonly Dictionary<DependencyObject, string> _originalLabels = new();
+    private static readonly Dictionary<string, string> EnglishLabels = new(StringComparer.Ordinal)
+    {
+        ["Регистры"]="Registers", ["Поиск TCP"]="TCP discovery", ["Снимки / изменения"]="Snapshots / changes",
+        ["График / история"]="Chart / history", ["Автопоиск"]="Auto discovery", ["IP-сканер"]="IP scanner",
+        ["Список устройств"]="Devices", ["Диагностика сети"]="Network diagnostics", ["Карта сети"]="Network map",
+        ["Справка / О программе"]="Help / About", ["Обновить COM"]="Refresh COM",
+        ["Сохранить профиль"]="Save profile", ["Загрузить профиль"]="Load profile",
+        ["Подключить / проверить"]="Connect / test", ["Читать диапазон"]="Read range",
+        ["Автопоиск RTU"]="RTU auto discovery", ["Сканировать регистры"]="Scan registers",
+        ["Остановить"]="Stop", ["Экспорт CSV"]="Export CSV", ["▶ Мониторинг"]="▶ Monitor",
+        ["■ Стоп"]="■ Stop", ["Бит = 1"]="Bit = 1", ["Бит = 0"]="Bit = 0",
+        ["Запустить TCP симулятор"]="Start TCP simulator", ["Экспорт карты JSON"]="Export JSON map",
+        ["Импорт карты JSON"]="Import JSON map", ["Записать 32-бит (FC16)"]="Write 32-bit (FC16)",
+        ["Записать регистр (FC06)"]="Write register (FC06)",
+        ["Записать несколько (FC16)"]="Write multiple (FC16)",
+        ["Записать Coil (FC05)"]="Write coil (FC05)",
+        ["Повторно прочитать выбранный"]="Read selected again", ["Найти узлы"]="Find hosts",
+        ["Остановить поиск"]="Stop discovery", ["Сделать снимок"]="Take snapshot",
+        ["Сохранить снимок"]="Save snapshot", ["Загрузить и сравнить"]="Load and compare",
+        ["История CSV"]="History CSV", ["Очистить историю"]="Clear history",
+        ["Обновить адаптеры"]="Refresh adapters", ["Определить мою подсеть"]="Detect my subnet",
+        ["Найти устройства"]="Find devices", ["Очистить результаты"]="Clear results",
+        ["Ping × 4"]="Ping × 4", ["Мониторинг × 20"]="Monitor × 20",
+        ["Трассировка"]="Traceroute", ["TCP-порт"]="TCP port", ["Проверить DNS"]="Check DNS",
+        ["Ping шлюза"]="Ping gateway", ["Сравнить шлюз и узел"]="Compare gateway / host",
+        ["ARP-таблица"]="ARP table", ["Экспорт отчёта"]="Export report",
+        ["Обновить карту по результатам поиска"]="Refresh map from scan",
+        ["Сохранить журнал"]="Save log", ["Адрес"]="Address", ["Порт"]="Port",
+        ["Ping и трассировка IPv4"]="IPv4 ping and traceroute",
+        ["Диагностика сети — пошаговая проверка"]="Network diagnostics — step by step",
+        ["Modbus Scanner — руководство"]="Modbus Scanner — User guide",
+        ["Язык / Language:"]="Language / Язык:",
+        ["Шаг 1. Выберите сетевой адаптер в IP-сканере. Шаг 2. Введите IP устройства или DNS-имя для проверки DNS. Шаг 3. Нажмите нужную проверку; результат появится ниже."]=
+            "Step 1: Select the network adapter in IP scanner. Step 2: Enter a device IP, or a host name for DNS. Step 3: Run a test and read the results below.",
+        ["Подсказка: Ping — доступность и задержка; Мониторинг — нестабильность за 20 запросов; TCP-порт — принимает ли служба соединения; Сравнить — шлюз и устройство; ARP — изменения MAC между проверками; Экспорт — текстовый отчёт."]=
+            "Tip: Ping tests response time; Monitor samples 20 pings; TCP checks whether a service accepts connections; Compare checks gateway and host; ARP detects MAC changes; Export saves a report.",
+        ["Потери и задержки показывают симптомы, но не доказывают неисправность кабеля. Промежуточные маршрутизаторы могут не отвечать на ICMP."]=
+            "Loss and latency are symptoms, not proof of a bad cable. Intermediate routers may ignore ICMP.",
+        ["Важно: не сканируйте чужие сети и не записывайте значения на работающем оборудовании без понимания последствий."]=
+            "Important: Scan only networks you are authorized to test. Do not write values to production devices without understanding the consequences."
+    };
+    private static string LanguagePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "BloodSky", "ModbusScanner", "language.txt");
+
+    private void CaptureLabels(DependencyObject root)
+    {
+        if (root is Button b && b.Content is string buttonText) _originalLabels[b] = buttonText;
+        if (root is TabItem tab && tab.Header is string header) _originalLabels[tab] = header;
+        if (root is TextBlock label) _originalLabels[label] = label.Text;
+        if (root is CheckBox check && check.Content is string checkText) _originalLabels[check] = checkText;
+        int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++) CaptureLabels(System.Windows.Media.VisualTreeHelper.GetChild(root, i));
+    }
+
+    private void ApplyLanguage(string language)
+    {
+        foreach (var item in _originalLabels)
+        {
+            string value = language == "en" && EnglishLabels.TryGetValue(item.Value, out var translated)
+                ? translated : item.Value;
+            switch (item.Key)
+            {
+                case Button button: button.Content = value; break;
+                case TabItem tab: tab.Header = value; break;
+                case TextBlock label: label.Text = value; break;
+                case CheckBox check: check.Content = value; break;
+            }
+        }
+    }
+
+    private void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || LanguageBox.SelectedItem is not ComboBoxItem selected) return;
+        string language = selected.Tag as string == "en" ? "en" : "ru";
+        ApplyLanguage(language);
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(LanguagePath)!);
+            File.WriteAllText(LanguagePath, language);
+        }
+        catch (Exception ex) { Log("Language settings: " + ex.Message); }
+    }
+
+    private void InitializeLanguage()
+    {
+        CaptureLabels(this);
+        string language = "ru";
+        try
+        {
+            if (File.Exists(LanguagePath) && File.ReadAllText(LanguagePath).Trim() == "en")
+                language = "en";
+        }
+        catch (Exception ex) { Log("Language settings: " + ex.Message); }
+        LanguageBox.SelectedIndex = language == "en" ? 1 : 0;
+        ApplyLanguage(language);
+    }
 
     private sealed record LocalSettings(int Protocol, string Host, string Port, string Unit, int Function, string Address, string Quantity, string LanStart, string LanEnd);
     private static string SettingsPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BloodSky", "ModbusScanner", "settings.json");
