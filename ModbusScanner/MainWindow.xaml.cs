@@ -1116,7 +1116,9 @@ public partial class MainWindow : Window
     private void DrawLanMap()
     {
         LanMapCanvas.Children.Clear();
-        var hosts = LanResultsList.Items.OfType<string>().ToList();
+        var hosts = LanResultsList.Items.OfType<string>()
+            .OrderBy(item => IPAddress.TryParse(item.Split('|')[0].Trim(), out var ip) ? IpToUInt(ip) : uint.MaxValue)
+            .ToList();
         const double width = 900, cardWidth = 250, cardHeight = 74;
         int columns = 3;
         int rows = (hosts.Count + columns - 1) / columns;
