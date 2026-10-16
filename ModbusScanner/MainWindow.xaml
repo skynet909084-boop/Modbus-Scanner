@@ -312,7 +312,7 @@
         <TextBlock Text="От" VerticalAlignment="Center"/><TextBox x:Name="LanStartBox" Width="125" Text="192.168.1.1"/>
         <TextBlock Text="До" VerticalAlignment="Center"/><TextBox x:Name="LanEndBox" Width="125" Text="192.168.1.254"/>
         <TextBlock Text="Тайм-аут (мс)" VerticalAlignment="Center"/><TextBox x:Name="LanTimeoutBox" Width="70" Text="350"/>
-        <Button Content="Определить мою подсеть" Click="DetectLanSubnet_Click"/><Button Content="Найти устройства" Click="ScanLan_Click"/><Button Content="Остановить" Click="StopScan_Click"/>
+        <Button Content="Определить мою подсеть" Click="DetectLanSubnet_Click"/><Button Content="Найти устройства" Click="ScanLan_Click"/><Button Content="Экспорт CSV" Click="ExportLanCsv_Click"/><Button Content="Остановить" Click="StopScan_Click"/>
       </WrapPanel>
       <TextBlock Text="Проверяемые порты: 80, 443, 22, 23, 502, 8080, 554, 3389, 445, 9100. Отсутствие ответа не означает, что IP свободен." TextWrapping="Wrap" Margin="0,5,0,8"/>
       <TextBlock Text="Выберите найденный адрес, чтобы перенести его в настройки Modbus TCP (порт 502)." TextWrapping="Wrap" Margin="0,5,0,5"/>
