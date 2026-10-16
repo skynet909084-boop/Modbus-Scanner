@@ -69,8 +69,19 @@ public partial class MainWindow : Window
 
 
     private readonly Dictionary<DependencyObject, string> _originalLabels = new();
+    private readonly Dictionary<DataGridColumn, string> _originalColumnHeaders = new();
     private static readonly Dictionary<string, string> EnglishLabels = new(StringComparer.Ordinal)
     {
+        ["Разрешить запись"]="Enable writing",
+        ["Продолжить остановленный поиск (в текущем сеансе)"]="Resume interrupted scan (this session)",
+        ["К записи FC16"]="FC16 write",
+        ["Типизированное значение"]="Typed value",
+        ["Интерпретация / примечание"]="Interpretation / notes",
+        ["Ед."]="Unit",
+        ["Множитель"]="Scale",
+        ["Смещение"]="Offset",
+        ["Пересчёт"]="Scaled value",
+        ["Качество"]="Quality",
         ["Протокол"]="Protocol",
         ["Скорость"]="Baud rate",
         ["Стартовый адрес"]="Start address",
@@ -168,6 +179,9 @@ public partial class MainWindow : Window
 
     private void CaptureLabels(DependencyObject root)
     {
+        if (root is DataGrid grid)
+            foreach (var column in grid.Columns)
+                if (column.Header is string columnTitle) _originalColumnHeaders[column] = columnTitle;
         if (root is Button b && b.Content is string buttonText) _originalLabels[b] = buttonText;
         if (root is TabItem tab && tab.Header is string header) _originalLabels[tab] = header;
         if (root is TextBlock label) _originalLabels[label] = label.Text;
@@ -183,6 +197,9 @@ public partial class MainWindow : Window
 
     private void ApplyLanguage(string language)
     {
+        foreach (var column in _originalColumnHeaders)
+            column.Key.Header = language == "en" && EnglishLabels.TryGetValue(column.Value, out var translatedHeader)
+                ? translatedHeader : column.Value;
         foreach (var item in _originalLabels)
         {
             string value = language == "en" && EnglishLabels.TryGetValue(item.Value, out var translated)
