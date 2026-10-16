@@ -315,7 +315,8 @@
         <Button Content="Найти устройства" Click="ScanLan_Click"/><Button Content="Остановить" Click="StopScan_Click"/>
       </WrapPanel>
       <TextBlock Text="Проверяемые порты: 80, 443, 22, 23, 502, 8080, 554, 3389, 445, 9100. Отсутствие ответа не означает, что IP свободен." TextWrapping="Wrap" Margin="0,5,0,8"/>
-      <ListBox x:Name="LanResultsList" MinHeight="200" FontFamily="Consolas"/>
+      <TextBlock Text="Выберите найденный адрес, чтобы перенести его в настройки Modbus TCP (порт 502)." TextWrapping="Wrap" Margin="0,5,0,5"/>
+      <ListBox x:Name="LanResultsList" MinHeight="200" FontFamily="Consolas" SelectionChanged="LanResultsList_SelectionChanged"/>
     </StackPanel>
    </TabItem>
    <TabItem Header="Справка / О программе">
