@@ -1201,7 +1201,7 @@ public partial class MainWindow : Window
                 DrawLanMap();
                 Log($"IP-поиск завершён: найдено {found} адресов с отвечающими TCP-службами.");
             }
-            catch (OperationCanceledException) { Log("IP-поиск остановлен."); }
+            catch (OperationCanceledException) { DrawLanMap(); Log("IP-поиск остановлен; уже найденные узлы сохранены на карте."); }
             finally { _scanCts = null; SetBusy(false); }
         }
         catch (Exception ex) { Log("IP-поиск: " + ex.Message); }
