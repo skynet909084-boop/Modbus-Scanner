@@ -1274,7 +1274,7 @@ public partial class MainWindow : Window
     {
         if (!IPAddress.TryParse(DiagHostBox.Text.Trim(), out var ip) ||
             ip.AddressFamily != AddressFamily.InterNetwork)
-            throw new FormatException("Введите корректный IPv4-адрес для диагностики.");
+            throw new FormatException(UiText("Введите корректный IPv4-адрес для диагностики.", "Enter a valid IPv4 address for diagnostics."));
         return ip;
     }
 
@@ -1286,7 +1286,7 @@ public partial class MainWindow : Window
         {
             if (string.IsNullOrWhiteSpace(DiagnosisOutputBox.Text))
             {
-                Log("Отчёт диагностики пуст.");
+                Log(UiText("Отчёт диагностики пуст.", "Diagnostic report is empty."));
                 return;
             }
             var dialog = new SaveFileDialog
