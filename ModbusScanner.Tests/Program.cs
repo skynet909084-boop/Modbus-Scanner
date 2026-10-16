@@ -28,6 +28,9 @@ static class Program
         header[5]=3;Check(TcpProbe.Validate(header,new byte[]{0x83,2},1,3,0x5311),"exception proves Modbus");
         Check(!TcpProbe.Validate(header,new byte[]{0x84,2},1,3,0x5311),"wrong exception function");
         ProbeLoopback(false).GetAwaiter().GetResult();ProbeLoopback(true).GetAwaiter().GetResult();
+        FrameChecks.Validate(new byte[]{1,3,0,0,0,1},new byte[]{1,3,2,0,42},true);Check(true,"read framing");
+        try{FrameChecks.Validate(new byte[]{1,3,0,0,0,1},new byte[]{1,3,4,0,42},true);throw new Exception("bad frame accepted");}catch(IOException){Check(true,"bad read length rejected");}
+        try{FrameChecks.Validate(new byte[]{1,6,0,0,0,1},new byte[]{1,6,0,0,0,2},true);throw new Exception("bad write accepted");}catch(IOException){Check(true,"write echo rejected");}
         var app=new Application();var window=new MainWindow();
         var enable=(CheckBox)window.FindName("EnableWritesBox");Check(enable.IsChecked==false,"writes disabled on startup");
         var method=typeof(MainWindow).GetMethod("ApplyReadValues",BindingFlags.NonPublic|BindingFlags.Instance)!;

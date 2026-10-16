@@ -7,6 +7,7 @@ public sealed class RegisterRow : INotifyPropertyChanged
 {
     private ushort _address;
     private double _scale=1, _offset;
+    public ushort PendingValue { get; set; }
     public byte Function { get; set; } = 3;
     public string Unit { get; set; } = "";
     public double Scale { get=>_scale; set { if(!double.IsFinite(value))return; _scale=value; OnPropertyChanged(); OnPropertyChanged(nameof(ScaledValue)); } }

@@ -29,7 +29,9 @@ public partial class MainWindow
     private void SetBusy(bool busy)
     {
         foreach(var control in new Control[]{ProtocolBox,HostBox,PortBox,ComBox,BaudBox,ParityBox,DataBitsBox,StopBitsBox,UnitBox,FunctionBox,StartAddressBox,QuantityBox,MonitorIntervalBox,RtuBaudsBox,RtuParitiesBox,RtuUnitFromBox,RtuUnitToBox})control.IsEnabled=!busy;
-        if(!busy)ProtocolBox_SelectionChanged(this,null!);
+        if(!busy){
+            bool tcp=IsTcp;ComBox.IsEnabled=!tcp;BaudBox.IsEnabled=!tcp;ParityBox.IsEnabled=!tcp;DataBitsBox.IsEnabled=!tcp;StopBitsBox.IsEnabled=!tcp;HostBox.IsEnabled=tcp;PortBox.IsEnabled=tcp;
+        }
     }
     private long _requests, _errors;
     private double _totalLatency;
@@ -104,7 +106,7 @@ public partial class MainWindow
         if(TrendCanvas==null || TrendAddressBox==null || !ushort.TryParse(TrendAddressBox.Text,out var address))return;
         TrendCanvas.Children.Clear();
         byte fc=(byte)(FunctionBox.SelectedIndex+1);
-        var points=_history.Where(p=>p.Address==address && p.Function==fc).TakeLast(1000).ToArray();
+        var points=_history.Where(p=>p.Address==address && p.Function==fc && double.IsFinite(p.Value)).TakeLast(1000).ToArray();
         if(points.Length<2)return;
         double min=points.Min(p=>p.Value), max=points.Max(p=>p.Value), span=Math.Max(max-min,1e-9);
         double width=Math.Max(TrendCanvas.ActualWidth-20,1),height=Math.Max(TrendCanvas.ActualHeight-40,1);

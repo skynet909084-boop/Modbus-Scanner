@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private TcpClient? _tcp;
     private NetworkStream? _stream;
     private ushort _transactionId;
+    private string _transportContext="";
     private CancellationTokenSource? _scanCts;
     private bool _connected;
     private bool IsTcp => ProtocolBox.SelectedIndex == 1;
@@ -182,6 +183,7 @@ public partial class MainWindow : Window
 
     private async Task EnsureConnectedAsync(CancellationToken ct = default)
     {
+        if(_transportContext!=ConnectionContext){Disconnect();_transportContext=ConnectionContext;}
         if (IsTcp)
         {
             if (_tcp?.Connected == true && _stream is not null) return;
@@ -227,7 +229,7 @@ public partial class MainWindow : Window
 
     private async void StartMonitor_Click(object sender, RoutedEventArgs e)
     {
-        if (_scanCts != null) { Log("Сначала остановите текущую операцию."); return; }
+        if (_scanCts != null || _operationGate.CurrentCount==0) { Log("Сначала остановите текущую операцию."); return; }
         int interval;
         try { interval = ParseInt(MonitorIntervalBox.Text, 200, 60000, "Период мониторинга"); GetStart(); GetQuantity(); GetUnit(); }
         catch (Exception ex) { Log(ex.Message); return; }
@@ -293,6 +295,7 @@ public partial class MainWindow : Window
             if (row is null) { row = new RegisterRow { Address = address }; _rows.Add(row); }
             row.Function = function;
             row.RawValue = values[i];
+            row.PendingValue = values[i];
             row.Quality = "OK";
             if (function is 1 or 2) row.Description = values[i] == 0 ? "OFF" : "ON";
         }
@@ -304,7 +307,7 @@ public partial class MainWindow : Window
 
     private async void ReadRange_Click(object sender, RoutedEventArgs e)
     {
-        if(_scanCts!=null){Log("Сначала остановите текущую операцию.");return;}
+        if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите текущую операцию.");return;}
         try
         {
             await EnsureConnectedAsync();
@@ -358,6 +361,7 @@ public partial class MainWindow : Window
     private async Task<byte[]> ExchangeAsync(byte[] pdu, byte function, CancellationToken ct)
     {
         await _operationGate.WaitAsync(ct);
+        SetBusy(true);
         var timer = System.Diagnostics.Stopwatch.StartNew();
         try
         {
@@ -369,6 +373,7 @@ public partial class MainWindow : Window
                 if (result.Length != (IsTcp ? 3 : 5)) throw new IOException("Неверная длина исключения Modbus.");
                 throw new ModbusDeviceException(result[2]);
             }
+            FrameChecks.Validate(pdu, result, IsTcp);
             RecordExchange(timer.Elapsed.TotalMilliseconds, null);
             return result;
         }
@@ -378,7 +383,7 @@ public partial class MainWindow : Window
             if (ex is not ModbusDeviceException) Disconnect();
             throw;
         }
-        finally { _operationGate.Release(); }
+        finally { if(_scanCts==null)SetBusy(false); _operationGate.Release(); }
     }
 
     private async Task<byte[]> ExchangeCoreAsync(byte[] pdu, byte function, CancellationToken ct)
@@ -435,15 +440,19 @@ public partial class MainWindow : Window
                 Array.Copy(pdu, frame, pdu.Length);
                 ushort crc = Crc16(frame, pdu.Length);
                 frame[^2] = (byte)crc; frame[^1] = (byte)(crc >> 8);
+                ct.ThrowIfCancellationRequested();
+                var serialTimer=System.Diagnostics.Stopwatch.StartNew();
+                int serialBudget=650;
+                int NextByte(){ ct.ThrowIfCancellationRequested(); int remaining=serialBudget-(int)serialTimer.ElapsedMilliseconds; if(remaining<=0)throw new TimeoutException("Тайм-аут RTU кадра."); serial.ReadTimeout=remaining;return ReadSerialByte(serial); }
                 serial.Write(frame, 0, frame.Length);
-                var first = ReadSerialByte(serial);
+                var first = NextByte();
                 if (first != pdu[0]) throw new IOException("Ответ от другого Slave ID.");
-                var second = ReadSerialByte(serial);
+                var second = NextByte();
                 if ((second & 0x80) != 0)
                 {
-                    var exception = ReadSerialByte(serial);
-                    int crcLow = ReadSerialByte(serial);
-                    int crcHigh = ReadSerialByte(serial);
+                    var exception = NextByte();
+                    int crcLow = NextByte();
+                    int crcHigh = NextByte();
                     byte[] exceptionFrame = { (byte)first, (byte)second, (byte)exception };
                     ushort expectedExceptionCrc = Crc16(exceptionFrame, exceptionFrame.Length);
                     ushort receivedExceptionCrc = (ushort)(crcLow | (crcHigh << 8));
@@ -459,17 +468,17 @@ public partial class MainWindow : Window
                     // FC05/06/16 replies echo the address/value or address/quantity; there is no byte-count field.
                     answer = new byte[8];
                     answer[0] = (byte)first; answer[1] = (byte)second;
-                    for (int i = 2; i < answer.Length; i++) answer[i] = (byte)ReadSerialByte(serial);
+                    for (int i = 2; i < answer.Length; i++) answer[i] = (byte)NextByte();
                 }
                 else
                 {
-                    var byteCount = ReadSerialByte(serial);
+                    var byteCount = NextByte();
                     if (byteCount > 250)
                         throw new IOException($"Недопустимая длина данных RTU: {byteCount} байт (максимум 250).");
                     if (function is 3 or 4 && (byteCount == 0 || (byteCount & 1) != 0))
                         throw new IOException($"Недопустимая длина ответа RTU для FC{function}: {byteCount} байт.");
                     byte[] body = new byte[byteCount + 2];
-                    for (int i = 0; i < body.Length; i++) body[i] = (byte)ReadSerialByte(serial);
+                    for (int i = 0; i < body.Length; i++) body[i] = (byte)NextByte();
                     answer = new byte[3 + body.Length];
                     answer[0] = (byte)first; answer[1] = (byte)second; answer[2] = (byte)byteCount;
                     Array.Copy(body, 0, answer, 3, body.Length);
@@ -539,7 +548,7 @@ public partial class MainWindow : Window
                 if (selected[i].Address != contiguous[^1].Address + 1) break;
                 contiguous.Add(selected[i]);
             }
-            var values = contiguous.Select(r => r.RawValue).ToArray();
+            var values = contiguous.Select(r => r.PendingValue).ToArray();
             if (!ApproveWrite(16, row.Address, values)) return;
             await WriteAsync(GetUnit(), 16, row.Address, values, CancellationToken.None);
             Log($"FC16: записано {values.Length} регистров с адреса {row.Address}.");
@@ -618,7 +627,7 @@ public partial class MainWindow : Window
 
     private async void RefreshSelected_Click(object sender, RoutedEventArgs e)
     {
-        if(_scanCts!=null){Log("Сначала остановите текущую операцию.");return;}
+        if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите текущую операцию.");return;}
         if (RegistersGrid.SelectedItem is not RegisterRow row) return;
         try { await ReadBackAsync(row.Address, 1, row.Function); Log($"Повторное чтение адреса {row.Address} выполнено."); }
         catch (Exception ex) { row.Quality = "Ошибка"; Log("Повторное чтение: " + ex.Message); }
@@ -629,23 +638,23 @@ public partial class MainWindow : Window
     private async void ScanRtu_Click(object sender, RoutedEventArgs e)
     {
         if (IsTcp) { Log("Выберите RTU."); return; }
-        if (_scanCts != null) { Log("Сначала остановите текущую операцию."); return; }
+        if (_scanCts != null || _operationGate.CurrentCount==0) { Log("Сначала остановите текущую операцию."); return; }
         try
         {
             var com=ComBox.SelectedItem?.ToString() ?? throw new InvalidOperationException("Выберите COM-порт.");
             var rates=RtuBaudsBox.Text.Split(',').Select(x=>ParseInt(x.Trim(),300,1000000,"Скорость")).Distinct().ToArray();
             var parities=RtuParitiesBox.Text.Split(',').Select(x=>Enum.Parse<Parity>(x.Trim(),true)).Distinct().ToArray();
             if(rates.Length==0 || rates.Length>16 || parities.Length==0 || parities.Any(x=>x is not (Parity.None or Parity.Even or Parity.Odd)))throw new FormatException("Выберите None, Even, Odd.");
-            int from=ParseInt(RtuUnitFromBox.Text,1,247,"ID от"),to=ParseInt(RtuUnitToBox.Text,from,247,"ID до");
+            int unitFrom=ParseInt(RtuUnitFromBox.Text,1,247,"ID от"),unitTo=ParseInt(RtuUnitToBox.Text,unitFrom,247,"ID до");
             byte fc=(byte)(FunctionBox.SelectedIndex+1); if(fc<3)throw new InvalidOperationException("Для автопоиска выберите FC03 или FC04.");
             ushort address=GetStart();
             int data=int.Parse(((ComboBoxItem)DataBitsBox.SelectedItem).Content.ToString()!);
             var stop=StopBitsBox.SelectedIndex==1?StopBits.Two:StopBits.One;
-            var plan=(from baud in rates from parity in parities from unit in Enumerable.Range(from,to-from+1) select (baud,parity,unit)).ToArray();
-            string signature=$"{com}|{string.Join(',',rates)}|{string.Join(',',parities)}|{from}|{to}|{fc}|{address}|{data}|{stop}";
+            var plan=(from baud in rates from parity in parities from unit in Enumerable.Range(unitFrom,unitTo-unitFrom+1) select (baud,parity,unit)).ToArray();
+            string signature=$"{com}|{string.Join(',',rates)}|{string.Join(',',parities)}|{unitFrom}|{unitTo}|{fc}|{address}|{data}|{stop}";
             if(signature!=_rtuSignature || RtuResumeBox.IsChecked!=true || _rtuCursor>=plan.Length)_rtuCursor=0;
             _rtuSignature=signature;
-            using var cts=new CancellationTokenSource();_scanCts=cts;SetBusy(true);Disconnect();
+            using var cts=new CancellationTokenSource();_scanCts=cts;SetBusy(true);Disconnect();_transportContext=ConnectionContext;
             try
             {
                 for(;_rtuCursor<plan.Length;_rtuCursor++)
@@ -670,7 +679,7 @@ public partial class MainWindow : Window
 
     private async void ScanRegisters_Click(object sender, RoutedEventArgs e)
     {
-        if (_scanCts != null) { Log("Сначала остановите текущую операцию."); return; }
+        if (_scanCts != null || _operationGate.CurrentCount==0) { Log("Сначала остановите текущую операцию."); return; }
         _scanCts = new CancellationTokenSource();
         SetBusy(true);
         var ct = _scanCts.Token;
@@ -731,7 +740,7 @@ public partial class MainWindow : Window
 
     private async void ScanTcpNetwork_Click(object sender, RoutedEventArgs e)
     {
-        if(_scanCts!=null){Log("Сначала остановите текущую операцию.");return;}
+        if(_scanCts!=null || _operationGate.CurrentCount==0){Log("Сначала остановите текущую операцию.");return;}
         try
         {
             if(!IPAddress.TryParse(TcpScanStartBox.Text,out var startIp) || startIp.AddressFamily!=AddressFamily.InterNetwork || !IPAddress.TryParse(TcpScanEndBox.Text,out var endIp) || endIp.AddressFamily!=AddressFamily.InterNetwork)throw new FormatException("Нужны адреса IPv4.");
