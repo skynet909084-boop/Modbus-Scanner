@@ -1118,6 +1118,62 @@ public partial class MainWindow : Window
         finally { _diagnosisCts = null; }
     }
 
+    private async void DiagnoseMonitor_Click(object sender, RoutedEventArgs e)
+    {
+        if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
+        try
+        {
+            var address = GetDiagnosisAddress();
+            using var cts = new CancellationTokenSource();
+            _diagnosisCts = cts;
+            DiagnosisOutputBox.Clear();
+            DiagnosisChartPanel.Children.Clear();
+            AppendDiagnosis($"Мониторинг {address}: 20 измерений с интервалом 1 с");
+            int received = 0;
+            var times = new List<long>();
+            using var ping = new Ping();
+            for (int i = 1; i <= 20; i++)
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                long? ms = null;
+                try
+                {
+                    var reply = await ping.SendPingAsync(address, TimeSpan.FromMilliseconds(1000),
+                        Array.Empty<byte>(), new PingOptions(), cts.Token);
+                    if (reply.Status == IPStatus.Success)
+                    {
+                        ms = reply.RoundtripTime;
+                        received++;
+                        times.Add(ms.Value);
+                        AppendDiagnosis($"{i,2}: {ms} мс");
+                    }
+                    else AppendDiagnosis($"{i,2}: {reply.Status}");
+                }
+                catch (PingException ex) { AppendDiagnosis($"{i,2}: ICMP: {ex.Message}"); }
+
+                // Bars represent RTT; red marks missing replies. Scale is capped at 500 ms.
+                var bar = new Border
+                {
+                    Width = 13,
+                    Height = ms.HasValue ? Math.Max(4, Math.Min(110, ms.Value * 110.0 / 500.0)) : 110,
+                    Background = ms.HasValue ? (ms.Value > 100 ? Brushes.Orange : Brushes.MediumSeaGreen) : Brushes.IndianRed,
+                    Margin = new Thickness(2, 0, 2, 0),
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                    ToolTip = ms.HasValue ? $"Измерение {i}: {ms} мс" : $"Измерение {i}: нет ответа"
+                };
+                DiagnosisChartPanel.Children.Add(bar);
+                if (i < 20) await Task.Delay(1000, cts.Token);
+            }
+            AppendDiagnosis($"Ответов: {received}/20; потери: {(20 - received) * 5}%");
+            if (times.Count > 0)
+                AppendDiagnosis($"RTT мин/сред/макс: {times.Min()}/{times.Average():F1}/{times.Max()} мс");
+            AppendDiagnosis("График: зелёный — ответ до 100 мс, оранжевый — более 100 мс, красный — нет ответа. Высота ограничена 500 мс.");
+        }
+        catch (OperationCanceledException) { AppendDiagnosis("Мониторинг остановлен."); }
+        catch (Exception ex) { AppendDiagnosis("Ошибка мониторинга: " + ex.Message); }
+        finally { _diagnosisCts = null; }
+    }
+
     private async void DiagnosePing_Click(object sender, RoutedEventArgs e)
     {
         if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
