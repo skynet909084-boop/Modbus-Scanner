@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Ports;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
@@ -1009,6 +1010,44 @@ public partial class MainWindow : Window
         (554, "RTSP / возможная IP-камера"), (3389, "RDP / Windows"),
         (445, "SMB / Windows или NAS"), (9100, "JetDirect / возможный принтер")
     };
+
+    private void DetectLanSubnet_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var candidates = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == OperationalStatus.Up &&
+                            n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                            n.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
+                .SelectMany(n => n.GetIPProperties().UnicastAddresses
+                    .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork &&
+                                a.IPv4Mask is not null)
+                    .Select(a => (Adapter: n.Name, Address: a.Address, Mask: a.IPv4Mask!)))
+                .Where(a => !IPAddress.IsLoopback(a.Address) &&
+                            !a.Address.ToString().StartsWith("169.254.", StringComparison.Ordinal))
+                .ToList();
+            if (candidates.Count == 0)
+                throw new InvalidOperationException("Активный IPv4-адаптер не найден. Укажите диапазон вручную.");
+            var selected = candidates[0];
+            uint mask = IpToUInt(selected.Mask);
+            uint network = IpToUInt(selected.Address) & mask;
+            uint broadcast = network | ~mask;
+            uint first = network < broadcast ? network + 1 : network;
+            uint last = broadcast > network ? broadcast - 1 : broadcast;
+            if (last < first || last - first > 1023)
+            {
+                // Limit wide networks to a /24 segment around the local interface.
+                network = IpToUInt(selected.Address) & 0xFFFFFF00u;
+                first = network + 1;
+                last = network + 254;
+                Log("Подсеть больше 1024 адресов: выбран локальный диапазон /24.");
+            }
+            LanStartBox.Text = UIntToIp(first).ToString();
+            LanEndBox.Text = UIntToIp(last).ToString();
+            Log($"Выбран адаптер {selected.Adapter}: {selected.Address}, маска {selected.Mask}; диапазон {LanStartBox.Text}–{LanEndBox.Text}. При нескольких адаптерах проверьте диапазон.");
+        }
+        catch (Exception ex) { Log("Определение подсети: " + ex.Message); }
+    }
 
     private void RefreshLanMap_Click(object sender, RoutedEventArgs e) => DrawLanMap();
 
