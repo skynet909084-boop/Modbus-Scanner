@@ -1120,37 +1120,57 @@ public partial class MainWindow : Window
             .OrderBy(item => IPAddress.TryParse(item.Split('|')[0].Trim(), out var ip) ? IpToUInt(ip) : uint.MaxValue)
             .ToList();
         const double width = 900, cardWidth = 250, cardHeight = 74;
-        int columns = 3;
-        int rows = (hosts.Count + columns - 1) / columns;
         LanMapCanvas.Width = width;
-        LanMapCanvas.Height = Math.Max(300, 125 + rows * 110);
-        AddMapCard($"Обнаружено: {hosts.Count}", "Логическая группа — не коммутатор", 325, 12, 250, 68, Brushes.DarkSlateBlue);
-        for (int i = 0; i < hosts.Count; i++)
-        {
-            int col = i % columns, row = i / columns;
-            double x = 24 + col * 290, y = 130 + row * 110;
-            string[] fields = hosts[i].Split('|');
-            string ip = fields[0].Trim();
-            string details = fields.Length > 2 ? fields[2].Trim() : "Службы неизвестны";
-            string kind = details.Contains("502 (") ? "Возможный Modbus TCP" :
-                details.Contains("554 (") ? "Возможная IP-камера" :
-                details.Contains("9100 (") ? "Возможный принтер" :
-                details.Contains("445 (") ? "Возможный ПК/NAS" :
-                details.Contains("22 (") || details.Contains("23 (") ? "Сетевое устройство/сервер" :
-                "Устройство с TCP-службой";
-            var line = new Line
-            {
-                X1 = 450, Y1 = 80, X2 = x + cardWidth / 2, Y2 = y,
-                Stroke = Brushes.SlateGray, StrokeThickness = 1,
-                StrokeDashArray = new DoubleCollection { 4, 5 },
-                IsHitTestVisible = false
-            };
-            LanMapCanvas.Children.Add(line);
-            string dns = fields.Length > 1 ? fields[1].Trim() : "";
-            AddMapCard(ip, kind, x, y, cardWidth, cardHeight, Brushes.DarkSlateGray, ip, dns + "\n" + details);
-        }
+        double y = 12;
         if (hosts.Count == 0)
-            AddMapCard("Нет результатов", "Сначала выполните IP-поиск", 325, 150, 250, 74, Brushes.DarkSlateGray);
+        {
+            AddMapCard("Нет результатов", "Сначала выполните IP-поиск", 325, 80, 250, 74, Brushes.DarkSlateGray);
+            LanMapCanvas.Height = 300;
+            return;
+        }
+
+        // /24 is a visual grouping convention, not a claim about the actual subnet mask.
+        var groups = hosts.GroupBy(item =>
+        {
+            string ip = item.Split('|')[0].Trim();
+            if (!IPAddress.TryParse(ip, out var address) || address.AddressFamily != AddressFamily.InterNetwork)
+                return "Другие адреса";
+            var bytes = address.GetAddressBytes();
+            return $"{bytes[0]}.{bytes[1]}.{bytes[2]}.0/24";
+        });
+        foreach (var group in groups)
+        {
+            var entries = group.ToList();
+            double rootY = y;
+            AddMapCard(group.Key, $"Условная группа /24 · устройств: {entries.Count}", 325, rootY, 250, 68, Brushes.DarkSlateBlue);
+            y += 100;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                int col = i % 3, row = i / 3;
+                double x = 24 + col * 290, nodeY = y + row * 110;
+                string[] fields = entries[i].Split('|');
+                string ip = fields[0].Trim();
+                string details = fields.Length > 2 ? fields[2].Trim() : "Службы неизвестны";
+                string kind = details.Contains("502 (") ? "Возможный Modbus TCP" :
+                    details.Contains("554 (") ? "Возможная IP-камера" :
+                    details.Contains("9100 (") ? "Возможный принтер" :
+                    details.Contains("445 (") ? "Возможный ПК/NAS" :
+                    details.Contains("22 (") || details.Contains("23 (") ? "Сетевое устройство/сервер" :
+                    "Устройство с TCP-службой";
+                var line = new Line
+                {
+                    X1 = 450, Y1 = rootY + 68, X2 = x + cardWidth / 2, Y2 = nodeY,
+                    Stroke = Brushes.SlateGray, StrokeThickness = 1,
+                    StrokeDashArray = new DoubleCollection { 4, 5 },
+                    IsHitTestVisible = false
+                };
+                LanMapCanvas.Children.Add(line);
+                string dns = fields.Length > 1 ? fields[1].Trim() : "";
+                AddMapCard(ip, kind, x, nodeY, cardWidth, cardHeight, Brushes.DarkSlateGray, ip, dns + "\n" + details);
+            }
+            y += ((entries.Count + 2) / 3) * 110 + 32;
+        }
+        LanMapCanvas.Height = Math.Max(300, y);
     }
 
     private void AddMapCard(string heading, string detail, double x, double y, double width, double height, Brush background, string? deviceIp = null, string? extraDetails = null)
