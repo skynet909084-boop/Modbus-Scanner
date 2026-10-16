@@ -1012,6 +1012,14 @@ public partial class MainWindow : Window
         (445, "SMB / Windows или NAS"), (9100, "JetDirect / возможный принтер")
     };
 
+    private void ClearLanResults_Click(object sender, RoutedEventArgs e)
+    {
+        if (_scanCts != null) { Log("Сначала остановите поиск, затем очистите результаты."); return; }
+        LanResultsList.Items.Clear();
+        DrawLanMap();
+        Log("Результаты IP-сканера и карта очищены.");
+    }
+
     private void ExportLanCsv_Click(object sender, RoutedEventArgs e)
     {
         try
