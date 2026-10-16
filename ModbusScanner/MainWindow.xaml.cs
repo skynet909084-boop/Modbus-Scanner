@@ -193,6 +193,8 @@ public partial class MainWindow : Window
             if (child is DependencyObject element) CaptureLabels(element);
     }
 
+    private string UiText(string russian, string english) => LanguageBox?.SelectedItem is ComboBoxItem { Tag: "en" } ? english : russian;
+
     private string UiText(string russian) => LanguageBox?.SelectedItem is ComboBoxItem { Tag: "en" } && EnglishLabels.TryGetValue(russian, out var english) ? english : russian;
 
     private void ApplyLanguage(string language)
@@ -384,8 +386,8 @@ public partial class MainWindow : Window
                     (r.Writable && r.Function != 3)) ||
                 document.Registers.Select(r => (r.Function, r.Address)).Distinct().Count() != document.Registers.Count)
                 throw new InvalidDataException("Неверная версия карты или определения регистров.");
-            if (MessageBox.Show($"Заменить текущую карту на {document.Registers.Count} записей? Параметры подключения останутся прежними.",
-                "Импорт карты", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            if (MessageBox.Show(UiText($"Заменить текущую карту на {document.Registers.Count} записей? Параметры подключения останутся прежними.", $"Replace the current map with {document.Registers.Count} entries? Connection settings will remain unchanged."),
+                UiText("Импорт карты", "Import map"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             _rows.Clear();
             foreach (var r in document.Registers)
                 _rows.Add(new RegisterRow { Address = r.Address, Function = r.Function, Description = r.Name, Unit = r.Unit, Scale = r.Scale, Offset = r.Offset, DataType = r.DataType, Writable = r.Writable });
@@ -477,7 +479,7 @@ public partial class MainWindow : Window
             WriteValueBox.Text = FormatWriteValue(after);
             Log($"Подготовка бита {BitIndexBox.SelectedIndex}: 0x{before:X4} → 0x{after:X4}. На устройство ничего не отправлено.");
         }
-        catch (Exception ex) { MessageBox.Show(ex.Message, "Редактор битов", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception ex) { MessageBox.Show(ex.Message, UiText("Редактор битов", "Bit editor"), MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private ushort ParseWriteValue()
@@ -508,8 +510,8 @@ public partial class MainWindow : Window
             : ushort.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
         if (!valid)
         {
-            MessageBox.Show("Исправьте значение 0–65535 / 0000–FFFF перед сменой формата.",
-                "Формат записи", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(UiText("Исправьте значение 0–65535 / 0000–FFFF перед сменой формата.", "Enter a valid value (0–65535 / 0000–FFFF) before changing format."),
+                UiText("Формат записи", "Write format"), MessageBoxButton.OK, MessageBoxImage.Warning);
             WriteValueFormatBox.SelectionChanged -= WriteValueFormatBox_SelectionChanged;
             WriteValueFormatBox.SelectedIndex = previousHex ? 1 : 0;
             WriteValueFormatBox.SelectionChanged += WriteValueFormatBox_SelectionChanged;
@@ -1109,15 +1111,15 @@ public partial class MainWindow : Window
                 string actual = string.Join(", ", values.Select(v => $"{v} (0x{v:X4})"));
                 Log($"Проверка записи {(match ? "PASS" : "MISMATCH")}: FC{fc:D2}, адрес {address}, запрошено [{requested}], прочитано [{actual}].");
                 if (!match)
-                    MessageBox.Show($"Запись не подтверждена повторным чтением!\nАдрес: {address}\nЗапрошено: {requested}\nПрочитано: {actual}",
-                        "Modbus: несовпадение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(UiText($"Запись не подтверждена повторным чтением!\nАдрес: {address}\nЗапрошено: {requested}\nПрочитано: {actual}", $"Write verification failed!\nAddress: {address}\nRequested: {requested}\nRead back: {actual}"),
+                        UiText("Modbus: несовпадение", "Modbus: mismatch"), MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
         catch (Exception ex) when (expected is not null)
         {
             Log($"Проверка записи READ ERROR: FC{fc:D2}, адрес {address}: {ex.Message}");
-            MessageBox.Show($"Устройство ответило на запись, но проверить значение не удалось: {ex.Message}",
-                "Modbus: проверка записи", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(UiText($"Устройство ответило на запись, но проверить значение не удалось: {ex.Message}", $"The device accepted the write, but verification failed: {ex.Message}"),
+                UiText("Modbus: проверка записи", "Modbus: write verification"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
