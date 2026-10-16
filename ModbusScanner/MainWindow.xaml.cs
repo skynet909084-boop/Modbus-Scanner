@@ -1913,7 +1913,7 @@ public partial class MainWindow : Window
                         }
                         int done = Interlocked.Increment(ref completed);
                         if (done % 10 == 0 || done == (int)(end - start + 1))
-                            await Dispatcher.InvokeAsync(() => StatusText.Text = $"IP-поиск {done}/{end - start + 1}, узлов с TCP: {Volatile.Read(ref found)}");
+                            await Dispatcher.InvokeAsync(() => StatusText.Text = UiText($"IP-поиск {done}/{end - start + 1}, узлов с TCP: {Volatile.Read(ref found)}", $"IP scan {done}/{end - start + 1}, hosts with TCP: {Volatile.Read(ref found)}"));
                     }
                     finally { gate.Release(); }
                 }).ToArray();
