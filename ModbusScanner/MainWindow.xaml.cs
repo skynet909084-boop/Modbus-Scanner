@@ -1116,12 +1116,19 @@ public partial class MainWindow : Window
     private void DrawLanMap()
     {
         LanMapCanvas.Children.Clear();
-        var hosts = LanResultsList.Items.OfType<string>()
+        var allHosts = LanResultsList.Items.OfType<string>()
             .OrderBy(item => IPAddress.TryParse(item.Split('|')[0].Trim(), out var ip) ? IpToUInt(ip) : uint.MaxValue)
             .ToList();
+        const int mapLimit = 150;
+        var hosts = allHosts.Take(mapLimit).ToList();
         const double width = 900, cardWidth = 250, cardHeight = 74;
         LanMapCanvas.Width = width;
         double y = 12;
+        if (allHosts.Count > mapLimit)
+        {
+            AddMapCard($"Показано {mapLimit} из {allHosts.Count}", "Остальные устройства доступны в списке и CSV", 325, y, 250, 68, Brushes.DarkSlateBlue);
+            y += 90;
+        }
         if (hosts.Count == 0)
         {
             AddMapCard("Нет результатов", "Сначала выполните IP-поиск", 325, 80, 250, 74, Brushes.DarkSlateGray);
