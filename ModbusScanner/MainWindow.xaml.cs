@@ -957,6 +957,17 @@ public partial class MainWindow : Window
         (445, "SMB / Windows или NAS"), (9100, "JetDirect / возможный принтер")
     };
 
+    private void LanResultsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_scanCts != null || LanResultsList.SelectedItem is not string result) return;
+        string ip = result.Split('|')[0].Trim();
+        if (!IPAddress.TryParse(ip, out var parsed) || parsed.AddressFamily != AddressFamily.InterNetwork) return;
+        ProtocolBox.SelectedIndex = 1;
+        HostBox.Text = ip;
+        PortBox.Text = "502";
+        Log($"IP {ip} перенесён в подключение Modbus TCP. Порт 502 установлен по умолчанию; наличие Modbus на этом адресе ещё не подтверждено.");
+    }
+
     private async void ScanLan_Click(object sender, RoutedEventArgs e)
     {
         if (_scanCts != null || _operationGate.CurrentCount == 0)
