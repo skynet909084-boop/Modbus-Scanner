@@ -322,7 +322,8 @@
         </TabItem>
         <TabItem Header="Диагностика сети">
           <StackPanel Margin="8">
-            <TextBlock Text="Ping и трассировка IPv4" FontWeight="Bold" FontSize="16"/>
+            <TextBlock Text="Диагностика сети — пошаговая проверка" FontWeight="Bold" FontSize="16"/>
+            <TextBlock Text="Шаг 1. Выберите сетевой адаптер в IP-сканере. Шаг 2. Введите IP устройства или DNS-имя для проверки DNS. Шаг 3. Нажмите нужную проверку; результат появится ниже." TextWrapping="Wrap" Margin="0,6,0,8"/>
             <WrapPanel Margin="0,8,0,8">
               <TextBlock Text="Адрес" VerticalAlignment="Center"/>
               <TextBox x:Name="DiagHostBox" Width="160" Text="192.168.1.1"/>
@@ -330,6 +331,7 @@
               <Button Content="Трассировка" Click="DiagnoseTrace_Click"/><Button Content="TCP-порт" Click="DiagnoseTcp_Click"/><Button Content="Проверить DNS" Click="DiagnoseDns_Click"/><Button Content="Ping шлюза" Click="DiagnoseGateway_Click"/><Button Content="Сравнить шлюз и узел" Click="DiagnoseCompare_Click"/><Button Content="ARP-таблица" Click="DiagnoseArp_Click"/><Button Content="Экспорт отчёта" Click="ExportDiagnosis_Click"/><TextBlock Text="Порт" VerticalAlignment="Center"/><TextBox x:Name="DiagPortBox" Width="65" Text="502"/>
               <Button Content="Остановить" Click="StopDiagnosis_Click"/>
             </WrapPanel>
+            <TextBlock Text="Подсказка: Ping — доступность и задержка; Мониторинг — нестабильность за 20 запросов; TCP-порт — принимает ли служба соединения; Сравнить — шлюз и устройство; ARP — изменения MAC между проверками; Экспорт — текстовый отчёт." TextWrapping="Wrap" Margin="0,0,0,8"/>
             <TextBlock Text="Потери и задержки показывают симптомы, но не доказывают неисправность кабеля. Промежуточные маршрутизаторы могут не отвечать на ICMP." TextWrapping="Wrap" Margin="0,0,0,8"/>
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="140"><StackPanel x:Name="DiagnosisChartPanel" Orientation="Horizontal" Height="125"/></ScrollViewer>
             <TextBox x:Name="DiagnosisOutputBox" FontFamily="Consolas" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MinHeight="250" MaxHeight="550" AcceptsReturn="True"/>
@@ -359,6 +361,18 @@
       <TextBlock Text="4. Карты регистров: импортируйте/экспортируйте JSON. Тип и признак Writable — справочные метаданные; они сами по себе не разрешают запись. Сохраняйте профили подключения." TextWrapping="Wrap" Margin="0,0,0,10"/>
       <TextBlock Text="5. Поиск TCP проверяет Modbus на выбранных портах. IP-сканер ищет TCP-службы в ограниченном диапазоне IPv4 и показывает предполагаемый тип устройства. Для определения точной модели проверьте интерфейс устройства или документацию." TextWrapping="Wrap" Margin="0,0,0,10"/>
       <TextBlock Text="Карта сети: вкладка показывает обнаруженные TCP-узлы, а линии пока обозначают логическую группировку. Реальные соединения между портами коммутаторов не определяются без дополнительных данных (например, LLDP/SNMP). Нажмите на узел карты для переноса IP в Modbus TCP." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Диагностика сети — понятная последовательность:" FontSize="16" FontWeight="Bold" Margin="0,8,0,8"/>
+      <TextBlock Text="Шаг 1. Во вкладке «IP-сканер» выберите нужный сетевой адаптер (Wi-Fi или Ethernet). Если устройств несколько, проверьте, что выбран адаптер нужной сети. Нажмите обновление адаптеров при необходимости." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Шаг 2. Откройте «Диагностика сети». В поле «Адрес» введите IPv4 проверяемого устройства. Кнопка «Ping шлюза» сама подставит адрес шлюза выбранного адаптера. «Сравнить шлюз и узел» проверяет оба адреса последовательно." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Ping × 4: четыре ICMP-запроса с тайм-аутом 1 с. Получено 4/4 — устройство отвечает; потери 25% — один запрос не получил ответа. Устройство может блокировать ICMP и при этом работать по TCP." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Мониторинг × 20: двадцать запросов с паузами 1 с, статистика потерь и график. Зелёный — ответ до 100 мс, оранжевый — свыше 100 мс, красный — нет ответа. Высота столбца ограничена 500 мс. Это ориентиры, а не универсальные пороги аварии." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="TCP-порт: введите IPv4 и порт (обычно 502 для Modbus TCP), затем нажмите кнопку. Четыре подключения покажут доступность службы и время установки TCP-соединения. Это не проверка корректности регистров Modbus." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Проверить DNS: в поле «Адрес» можно ввести имя сайта или устройства. Программа покажет найденные адреса и время поиска. Если введён числовой IP, полноценная проверка разрешения имени не выполняется." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Трассировка: показывает до 20 промежуточных маршрутизаторов до адреса. Пропуск ответа или звёздочка не обязательно означает неисправность: ICMP может фильтроваться или ограничиваться." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Сравнить шлюз и узел: по пять Ping к шлюзу и конечному устройству. Если шлюз отвечает быстро, а устройство медленно, проверьте маршрут, нагрузку и само устройство. Измерения последовательные; по ним нельзя определить неисправный порт коммутатора." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="ARP-таблица: нажмите дважды с интервалом времени. Если для одного IP изменился MAC, появится предупреждение. Это лишь повод проверить DHCP, резервирование адресов и журналы роутера; ARP-кэш может быть неполным или устаревшим." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Остановить: отменяет текущую диагностику. Экспорт отчёта: сохраняет видимый текст результатов в TXT. Новая проверка заменяет прежний текст, поэтому нужный отчёт сохраните заранее." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Быстрый поиск причины: (1) Ping шлюза; (2) Ping устройства; (3) TCP-порт 502; (4) сравнение задержек; (5) при периодических сбоях — мониторинг × 20 и ARP; (6) сохраните отчёт. Если Ping не проходит, но TCP работает, это может быть фильтрация ICMP, а не обрыв связи." TextWrapping="Wrap" Foreground="#FF29E6D2" Margin="0,0,0,12"/>
       <TextBlock Text="6. Симулятор: запустите локальный тестовый сервер, выберите TCP, адрес 127.0.0.1, порт 1502. Используйте его для безопасного тестирования команд без оборудования." TextWrapping="Wrap" Margin="0,0,0,10"/>
       <TextBlock Text="7. Снимки, графики, журнал и автопоиск: фиксируйте значения, отслеживайте изменения, экспортируйте журнал и останавливайте длительное сканирование кнопкой остановки." TextWrapping="Wrap" Margin="0,0,0,10"/>
       <TextBlock Text="Проект: Modbus Scanner. Автор проекта: Blood Sky / skynet909084-boop. Платформа: Windows, .NET 8 WPF." FontWeight="Bold" TextWrapping="Wrap" Margin="0,12,0,0"/>
