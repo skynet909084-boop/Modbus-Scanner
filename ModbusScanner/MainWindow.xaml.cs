@@ -8,6 +8,8 @@ using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using Microsoft.Win32;
 using ModbusScanner.Models;
 
@@ -1008,6 +1010,61 @@ public partial class MainWindow : Window
         (445, "SMB / Windows или NAS"), (9100, "JetDirect / возможный принтер")
     };
 
+    private void RefreshLanMap_Click(object sender, RoutedEventArgs e) => DrawLanMap();
+
+    private void DrawLanMap()
+    {
+        LanMapCanvas.Children.Clear();
+        var hosts = LanResultsList.Items.OfType<string>().ToList();
+        const double width = 900, cardWidth = 250, cardHeight = 74;
+        int columns = 3;
+        int rows = (hosts.Count + columns - 1) / columns;
+        LanMapCanvas.Width = width;
+        LanMapCanvas.Height = Math.Max(300, 125 + rows * 110);
+        AddMapCard("Обнаруженные TCP-узлы", "Логическая группа — не коммутатор", 325, 12, 250, 68, Brushes.DarkSlateBlue);
+        for (int i = 0; i < hosts.Count; i++)
+        {
+            int col = i % columns, row = i / columns;
+            double x = 24 + col * 290, y = 130 + row * 110;
+            string[] fields = hosts[i].Split('|');
+            string ip = fields[0].Trim();
+            string details = fields.Length > 2 ? fields[2].Trim() : "Службы неизвестны";
+            string kind = details.Contains("502 (") ? "Возможный Modbus TCP" :
+                details.Contains("554 (") ? "Возможная IP-камера" :
+                details.Contains("9100 (") ? "Возможный принтер" :
+                details.Contains("445 (") ? "Возможный ПК/NAS" :
+                details.Contains("22 (") || details.Contains("23 (") ? "Сетевое устройство/сервер" :
+                "Устройство с TCP-службой";
+            var line = new Line
+            {
+                X1 = 450, Y1 = 80, X2 = x + cardWidth / 2, Y2 = y,
+                Stroke = Brushes.SlateGray, StrokeThickness = 1,
+                StrokeDashArray = new DoubleCollection { 4, 5 },
+                IsHitTestVisible = false
+            };
+            LanMapCanvas.Children.Add(line);
+            AddMapCard(ip, kind, x, y, cardWidth, cardHeight, Brushes.DarkSlateGray);
+        }
+        if (hosts.Count == 0)
+            AddMapCard("Нет результатов", "Сначала выполните IP-поиск", 325, 150, 250, 74, Brushes.DarkSlateGray);
+    }
+
+    private void AddMapCard(string heading, string detail, double x, double y, double width, double height, Brush background)
+    {
+        var panel = new StackPanel { Margin = new Thickness(10), VerticalAlignment = VerticalAlignment.Center };
+        panel.Children.Add(new TextBlock { Text = heading, FontWeight = FontWeights.Bold, Foreground = Brushes.White, TextTrimming = TextTrimming.CharacterEllipsis });
+        panel.Children.Add(new TextBlock { Text = detail, Foreground = Brushes.LightCyan, FontSize = 11, TextWrapping = TextWrapping.Wrap });
+        var border = new Border
+        {
+            Width = width, Height = height, Background = background,
+            BorderBrush = Brushes.CadetBlue, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(7), Child = panel
+        };
+        Canvas.SetLeft(border, x);
+        Canvas.SetTop(border, y);
+        LanMapCanvas.Children.Add(border);
+    }
+
     private void LanResultsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_scanCts != null || LanResultsList.SelectedItem is not string result) return;
@@ -1087,6 +1144,7 @@ public partial class MainWindow : Window
                     finally { gate.Release(); }
                 }).ToArray();
                 await Task.WhenAll(tasks);
+                DrawLanMap();
                 Log($"IP-поиск завершён: найдено {found} адресов с отвечающими TCP-службами.");
             }
             catch (OperationCanceledException) { Log("IP-поиск остановлен."); }
