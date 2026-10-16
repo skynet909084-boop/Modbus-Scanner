@@ -575,7 +575,7 @@ public partial class MainWindow : Window
         StopBitsBox.IsEnabled = !tcp;
         HostBox.IsEnabled = tcp;
         PortBox.IsEnabled = tcp;
-        StatusText.Text = tcp ? "Режим Modbus TCP" : "Режим Modbus RTU";
+        StatusText.Text = tcp ? UiText("Режим Modbus TCP", "Modbus TCP mode") : UiText("Режим Modbus RTU", "Modbus RTU mode");
     }
 
     private void RefreshCom_Click(object sender, RoutedEventArgs e) { if(_scanCts==null && _operationGate.CurrentCount==1)RefreshComPorts(); }
@@ -599,7 +599,7 @@ public partial class MainWindow : Window
             var fc = (byte)(FunctionBox.SelectedIndex + 1);
             var values = await ReadAsync(unit, fc, GetStart(), 1, CancellationToken.None);
             _connected = true;
-            StatusText.Text = $"Связь подтверждена · Unit {unit}";
+            StatusText.Text = UiText($"Связь подтверждена · Unit {unit}", $"Connection verified · Unit {unit}");
             StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
             Log($"Связь OK: Unit={unit}, FC={fc}, ответ получен.");
             if (values.Length > 0) WriteValueBox.Text = FormatWriteValue(values[0]);
@@ -698,7 +698,7 @@ public partial class MainWindow : Window
                     var values = await ReadAsync(unit, function, start, GetQuantity(), ct);
                     ApplyReadValues(start, values, function);
                     _connected = true;
-                    StatusText.Text = $"Мониторинг · OK · {DateTime.Now:HH:mm:ss}";
+                    StatusText.Text = UiText($"Мониторинг · OK · {DateTime.Now:HH:mm:ss}", $"Monitoring · OK · {DateTime.Now:HH:mm:ss}");
                     StatusText.Foreground = System.Windows.Media.Brushes.LightGreen;
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
@@ -758,7 +758,7 @@ public partial class MainWindow : Window
             var values = await ReadAsync(GetUnit(), (byte)(FunctionBox.SelectedIndex + 1), GetStart(), GetQuantity(), CancellationToken.None);
             ApplyReadValues(GetStart(), values, (byte)(FunctionBox.SelectedIndex + 1));
             Log($"Прочитано {values.Length} значений с адреса {GetStart()} (FC{FunctionBox.SelectedIndex + 1}).");
-            StatusText.Text = $"Прочитано: {values.Length}";
+            StatusText.Text = UiText($"Прочитано: {values.Length}", $"Read: {values.Length}");
         }
         catch (Exception ex) { Log("Ошибка чтения: " + ex.Message); SetStatusText("Ошибка чтения"); }
     }
@@ -1958,7 +1958,7 @@ public partial class MainWindow : Window
                         }
                         catch(OperationCanceledException) when(cts.IsCancellationRequested){throw;}
                         catch{ }
-                        checkedCount++;StatusText.Text=$"TCP {checkedCount}/{total}, Modbus: {found}";
+                        checkedCount++;StatusText.Text=UiText($"TCP {checkedCount}/{total}, Modbus: {found}", $"TCP {checkedCount}/{total}, Modbus: {found}");
                     }
                 }
                 Log($"TCP завершён: {found} подтверждённых устройств, {checkedCount} проверок.");
