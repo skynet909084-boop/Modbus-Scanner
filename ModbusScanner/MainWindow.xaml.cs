@@ -1011,6 +1011,36 @@ public partial class MainWindow : Window
         (445, "SMB / Windows или NAS"), (9100, "JetDirect / возможный принтер")
     };
 
+    private void ExportLanCsv_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var entries = LanResultsList.Items.OfType<string>().ToArray();
+            if (entries.Length == 0) { Log("Экспорт IP-сканера: список пуст."); return; }
+            var dialog = new SaveFileDialog
+            {
+                Title = "Экспорт результатов IP-сканера",
+                Filter = "CSV (*.csv)|*.csv",
+                FileName = "lan-scan.csv",
+                DefaultExt = ".csv"
+            };
+            if (dialog.ShowDialog() != true) return;
+            static string Csv(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
+            var lines = new List<string> { "IP,DNS,TCP" };
+            foreach (string entry in entries)
+            {
+                var fields = entry.Split('|', 3);
+                if (fields.Length != 3) continue;
+                lines.Add(string.Join(",", Csv(fields[0].Trim()),
+                    Csv(fields[1].Trim().Replace("DNS: ", "")),
+                    Csv(fields[2].Trim().Replace("TCP: ", ""))));
+            }
+            File.WriteAllLines(dialog.FileName, lines, new UTF8Encoding(true));
+            Log($"Экспортировано {lines.Count - 1} устройств: {dialog.FileName}");
+        }
+        catch (Exception ex) { Log("Ошибка экспорта IP-сканера: " + ex.Message); }
+    }
+
     private void DetectLanSubnet_Click(object sender, RoutedEventArgs e)
     {
         try
