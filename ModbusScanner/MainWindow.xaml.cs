@@ -62,7 +62,8 @@ public partial class MainWindow : Window
     }
 
 
-    private sealed record RegisterMapDocument(int Version, List<RegisterDefinition> Registers);
+    private sealed record RegisterMapEntry(ushort Address, byte Function, string Name, string Unit, double Scale, double Offset, string DataType = "UInt16", bool Writable = false);
+    private sealed record RegisterMapDocument(int Version, List<RegisterMapEntry> Registers);
 
     private void ExportRegisterMap_Click(object sender, RoutedEventArgs e)
     {
@@ -70,7 +71,7 @@ public partial class MainWindow : Window
         {
             var dialog = new SaveFileDialog { Title = "Экспорт карты регистров", Filter = "JSON (*.json)|*.json", DefaultExt = ".json", FileName = "register-map.json" };
             if (dialog.ShowDialog() != true) return;
-            var entries = _rows.Select(r => new RegisterDefinition(r.Address, r.Function, r.Description, r.Unit, r.Scale, r.Offset)).ToList();
+            var entries = _rows.Select(r => new RegisterMapEntry(r.Address, r.Function, r.Description, r.Unit, r.Scale, r.Offset, r.DataType, r.Writable)).ToList();
             File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(new RegisterMapDocument(1, entries), new JsonSerializerOptions { WriteIndented = true }));
             Log($"Экспорт карты: {entries.Count} регистров, {dialog.FileName}");
         }
@@ -90,14 +91,16 @@ public partial class MainWindow : Window
             var document = JsonSerializer.Deserialize<RegisterMapDocument>(File.ReadAllText(dialog.FileName))
                 ?? throw new InvalidDataException("Пустой или неверный файл карты.");
             if (document.Version != 1 || document.Registers is null || document.Registers.Count > 65536 ||
-                document.Registers.Any(r => r.Function is < 1 or > 4 || !double.IsFinite(r.Scale) || !double.IsFinite(r.Offset)) ||
+                document.Registers.Any(r => r.Function is < 1 or > 4 || !double.IsFinite(r.Scale) || !double.IsFinite(r.Offset) ||
+                    r.DataType is not ("UInt16" or "Int16" or "UInt32" or "Int32" or "Float32") ||
+                    (r.Writable && r.Function != 3)) ||
                 document.Registers.Select(r => (r.Function, r.Address)).Distinct().Count() != document.Registers.Count)
                 throw new InvalidDataException("Неверная версия карты или определения регистров.");
             if (MessageBox.Show($"Заменить текущую карту на {document.Registers.Count} записей? Параметры подключения останутся прежними.",
                 "Импорт карты", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             _rows.Clear();
             foreach (var r in document.Registers)
-                _rows.Add(new RegisterRow { Address = r.Address, Function = r.Function, Description = r.Name, Unit = r.Unit, Scale = r.Scale, Offset = r.Offset });
+                _rows.Add(new RegisterRow { Address = r.Address, Function = r.Function, Description = r.Name, Unit = r.Unit, Scale = r.Scale, Offset = r.Offset, DataType = r.DataType, Writable = r.Writable });
             Log($"Импортировано {document.Registers.Count} регистров из {dialog.FileName}.");
         }
         catch (Exception ex) { Log("Ошибка импорта карты: " + ex.Message); }
