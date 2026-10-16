@@ -1182,7 +1182,7 @@ public partial class MainWindow : Window
 
     private void AppendDiagnosis(string line)
     {
-        DiagnosisOutputBox.AppendText(line + Environment.NewLine);
+        DiagnosisOutputBox.AppendText(TranslateRuntime(line) + Environment.NewLine);
         DiagnosisOutputBox.ScrollToEnd();
     }
 
@@ -1963,7 +1963,7 @@ public partial class MainWindow : Window
     private void Log(string message)
     {
         if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => Log(message)); return; }
-        LogList.Items.Insert(0, $"[{DateTime.Now:HH:mm:ss.fff}] {message}");
+        LogList.Items.Insert(0, $"[{DateTime.Now:HH:mm:ss.fff}] {TranslateRuntime(message)}");
         while (LogList.Items.Count > 1000) LogList.Items.RemoveAt(LogList.Items.Count - 1);
     }
 
