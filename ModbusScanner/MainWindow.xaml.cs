@@ -1030,6 +1030,52 @@ public partial class MainWindow : Window
         return ip;
     }
 
+    private async void DiagnoseDns_Click(object sender, RoutedEventArgs e)
+    {
+        if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
+        try
+        {
+            string target = DiagHostBox.Text.Trim();
+            if (string.IsNullOrWhiteSpace(target)) throw new FormatException("Введите IP или DNS-имя.");
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            _diagnosisCts = cts;
+            DiagnosisOutputBox.Clear();
+            AppendDiagnosis($"DNS: {target}");
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var addresses = await Dns.GetHostAddressesAsync(target, cts.Token);
+            watch.Stop();
+            AppendDiagnosis($"Разрешение имени: {watch.ElapsedMilliseconds} мс");
+            foreach (var address in addresses) AppendDiagnosis($"  {address}");
+            if (addresses.Length == 0) AppendDiagnosis("DNS не вернул адресов.");
+            if (IPAddress.TryParse(target, out _))
+                AppendDiagnosis("Введён IP-адрес: это не проверка прямого разрешения DNS-имени.");
+        }
+        catch (OperationCanceledException) { AppendDiagnosis("DNS: время ожидания истекло или проверка отменена."); }
+        catch (Exception ex) { AppendDiagnosis("Ошибка DNS: " + ex.Message); }
+        finally { _diagnosisCts = null; }
+    }
+
+    private async void DiagnoseGateway_Click(object sender, RoutedEventArgs e)
+    {
+        if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
+        try
+        {
+            var adapter = LanAdapterBox.SelectedItem as LanAdapterChoice;
+            if (adapter is null) { RefreshLanAdapters(); adapter = LanAdapterBox.SelectedItem as LanAdapterChoice; }
+            if (adapter is null) throw new InvalidOperationException("Сетевой адаптер не выбран.");
+            var gateway = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.Name == adapter.Adapter)
+                .SelectMany(n => n.GetIPProperties().GatewayAddresses)
+                .Select(g => g.Address)
+                .FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork);
+            if (gateway is null) throw new InvalidOperationException("Для выбранного адаптера IPv4-шлюз не найден.");
+            DiagHostBox.Text = gateway.ToString();
+            DiagnosePing_Click(sender, e);
+        }
+        catch (Exception ex) { AppendDiagnosis("Проверка шлюза: " + ex.Message); }
+        await Task.CompletedTask;
+    }
+
     private async void DiagnoseTcp_Click(object sender, RoutedEventArgs e)
     {
         if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
