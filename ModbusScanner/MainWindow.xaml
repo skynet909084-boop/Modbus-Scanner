@@ -195,7 +195,32 @@
       <TextBlock Text="Выбранный адрес" VerticalAlignment="Center" Margin="4"/>
       <TextBox x:Name="WriteAddressBox" Width="80" Text="0"/>
       <TextBlock Text="Новое значение" VerticalAlignment="Center" Margin="4"/>
-      <TextBox x:Name="WriteValueBox" Width="100" Text="0"/>
+      <TextBox x:Name="WriteValueBox" Width="100" Text="0" ToolTip="Значение 0–65535 в выбранном формате"/>
+      <TextBlock Text="Формат" VerticalAlignment="Center" Margin="6,0,3,0"/>
+      <ComboBox x:Name="WriteValueFormatBox" Width="75" SelectedIndex="0" SelectionChanged="WriteValueFormatBox_SelectionChanged" ToolTip="DEC — десятичный, HEX — шестнадцатеричный">
+       <ComboBoxItem Content="DEC"/><ComboBoxItem Content="HEX"/>
+      </ComboBox>
+      <TextBlock Text="Бит" Margin="6,0,3,0" VerticalAlignment="Center"/>
+      <ComboBox x:Name="BitIndexBox" Width="50" SelectedIndex="0" ToolTip="Номер бита от 0 до 15">
+       <ComboBoxItem Content="0"/><ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/>
+       <ComboBoxItem Content="4"/><ComboBoxItem Content="5"/><ComboBoxItem Content="6"/><ComboBoxItem Content="7"/>
+       <ComboBoxItem Content="8"/><ComboBoxItem Content="9"/><ComboBoxItem Content="10"/><ComboBoxItem Content="11"/>
+       <ComboBoxItem Content="12"/><ComboBoxItem Content="13"/><ComboBoxItem Content="14"/><ComboBoxItem Content="15"/>
+      </ComboBox>
+      <Button Content="Бит = 1" Click="SetBit_Click" ToolTip="Изменить подготовленное значение, без отправки устройству"/>
+      <Button Content="Бит = 0" Click="ClearBit_Click" ToolTip="Изменить подготовленное значение, без отправки устройству"/>
+      <TextBlock Text="32-бит" Margin="8,0,3,0" VerticalAlignment="Center"/>
+      <ComboBox x:Name="Write32TypeBox" Width="90" SelectedIndex="0">
+       <ComboBoxItem Content="Float32"/><ComboBoxItem Content="Int32"/><ComboBoxItem Content="UInt32"/>
+      </ComboBox>
+      <ComboBox x:Name="Write32OrderBox" Width="76" SelectedIndex="0" ToolTip="Порядок байтов в двух регистрах">
+       <ComboBoxItem Content="ABCD"/><ComboBoxItem Content="BADC"/><ComboBoxItem Content="CDAB"/><ComboBoxItem Content="DCBA"/>
+      </ComboBox>
+      <TextBox x:Name="Write32ValueBox" Width="115" Text="0" ToolTip="32-битное значение, десятичный формат"/>
+      <Button x:Name="SimulatorButton" Content="Запустить TCP симулятор" Click="ToggleSimulator_Click" ToolTip="Локальный тестовый сервер 127.0.0.1:1502"/>
+      <Button Content="Экспорт карты JSON" Click="ExportRegisterMap_Click" ToolTip="Сохранить описания регистров в отдельную карту"/>
+      <Button Content="Импорт карты JSON" Click="ImportRegisterMap_Click" ToolTip="Загрузить карту регистров без изменения параметров соединения"/>
+      <Button Content="Записать 32-бит (FC16)" Click="Write32_Click" ToolTip="Запись двух последовательных holding-регистров с подтверждением"/>
       <Button Content="Записать регистр (FC06)" Background="#FF7A5125" Foreground="White" Click="WriteRegister_Click"/>
       <Button Content="Записать несколько (FC16)" Background="#FF9C6124" Foreground="White" Click="WriteMultiple_Click"/>
       <Button Content="Записать Coil (FC05)" Background="#FF9C6124" Foreground="White" Click="WriteCoil_Click"/>
@@ -278,6 +303,111 @@
       <ListBox x:Name="RtuFoundList" Height="180" SelectionChanged="RtuFound_Selected"/><TextBlock Text="Выберите результат после остановки поиска, чтобы применить параметры. Результаты поиска появляются в журнале. Для скорости используйте ограниченный диапазон Slave ID и отметьте только реальные скорости, поддерживаемые преобразователем и контроллером." Margin="0,8,0,0" TextWrapping="Wrap"/>
      </StackPanel>
     </ScrollViewer>
+   </TabItem>
+   <TabItem Header="IP-сканер">
+    <StackPanel Margin="12">
+      <TextBlock Text="Поиск устройств локальной сети" FontSize="18" FontWeight="Bold"/>
+      <TextBlock Text="Проверка доступности по TCP и обратного DNS. Тип устройства определяется предположительно по открытым портам, а не гарантированно. Используйте только в своей сети или с разрешения администратора." TextWrapping="Wrap" Margin="0,8,0,8"/>
+      <WrapPanel>
+        <TextBlock Text="От" VerticalAlignment="Center"/><TextBox x:Name="LanStartBox" Width="125" Text="192.168.1.1"/>
+        <TextBlock Text="До" VerticalAlignment="Center"/><TextBox x:Name="LanEndBox" Width="125" Text="192.168.1.254"/>
+        <TextBlock Text="Тайм-аут (мс)" VerticalAlignment="Center"/><TextBox x:Name="LanTimeoutBox" Width="70" Text="350"/>
+        <ComboBox x:Name="LanAdapterBox" Width="250" ToolTip="Выберите сетевой адаптер для IP-сканирования"/><Button Content="Обновить адаптеры" Click="RefreshLanAdapters_Click"/><Button Content="Определить мою подсеть" Click="DetectLanSubnet_Click"/><Button Content="Найти устройства" Click="ScanLan_Click"/><Button Content="Экспорт CSV" Click="ExportLanCsv_Click"/><Button Content="Очистить результаты" Click="ClearLanResults_Click"/><Button Content="Остановить" Click="StopScan_Click"/>
+      </WrapPanel>
+      <TextBlock Text="Проверяемые порты: 80, 443, 22, 23, 502, 8080, 554, 3389, 445, 9100. Отсутствие ответа не означает, что IP свободен." TextWrapping="Wrap" Margin="0,5,0,8"/>
+      <TextBlock Text="Выберите найденный адрес, чтобы перенести его в настройки Modbus TCP (порт 502)." TextWrapping="Wrap" Margin="0,5,0,5"/>
+      <TabControl Margin="0,8,0,0">
+        <TabItem Header="Список устройств">
+          <ListBox x:Name="LanResultsList" MinHeight="200" FontFamily="Consolas" SelectionChanged="LanResultsList_SelectionChanged"/>
+        </TabItem>
+        <TabItem Header="Диагностика сети">
+          <StackPanel Margin="8">
+            <TextBlock Text="Диагностика сети — пошаговая проверка" FontWeight="Bold" FontSize="16"/>
+            <TextBlock Text="Шаг 1. Выберите сетевой адаптер в IP-сканере. Шаг 2. Введите IP устройства или DNS-имя для проверки DNS. Шаг 3. Нажмите нужную проверку; результат появится ниже." TextWrapping="Wrap" Margin="0,6,0,8"/>
+            <WrapPanel Margin="0,8,0,8">
+              <TextBlock Text="Адрес" VerticalAlignment="Center"/>
+              <TextBox x:Name="DiagHostBox" Width="160" Text="192.168.1.1"/>
+              <Button Content="Ping × 4" Click="DiagnosePing_Click"/><Button Content="Мониторинг × 20" Click="DiagnoseMonitor_Click"/>
+              <Button Content="Трассировка" Click="DiagnoseTrace_Click"/><Button Content="TCP-порт" Click="DiagnoseTcp_Click"/><Button Content="Проверить DNS" Click="DiagnoseDns_Click"/><Button Content="Ping шлюза" Click="DiagnoseGateway_Click"/><Button Content="Сравнить шлюз и узел" Click="DiagnoseCompare_Click"/><Button Content="ARP-таблица" Click="DiagnoseArp_Click"/><Button Content="Экспорт отчёта" Click="ExportDiagnosis_Click"/><TextBlock Text="Порт" VerticalAlignment="Center"/><TextBox x:Name="DiagPortBox" Width="65" Text="502"/>
+              <Button Content="Остановить" Click="StopDiagnosis_Click"/>
+            </WrapPanel>
+            <TextBlock Text="Подсказка: Ping — доступность и задержка; Мониторинг — нестабильность за 20 запросов; TCP-порт — принимает ли служба соединения; Сравнить — шлюз и устройство; ARP — изменения MAC между проверками; Экспорт — текстовый отчёт." TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <TextBlock Text="Потери и задержки показывают симптомы, но не доказывают неисправность кабеля. Промежуточные маршрутизаторы могут не отвечать на ICMP." TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="140"><StackPanel x:Name="DiagnosisChartPanel" Orientation="Horizontal" Height="125"/></ScrollViewer>
+            <TextBox x:Name="DiagnosisOutputBox" FontFamily="Consolas" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MinHeight="250" MaxHeight="550" AcceptsReturn="True"/>
+          </StackPanel>
+        </TabItem>
+        <TabItem Header="Карта сети">
+          <DockPanel Margin="8">
+            <StackPanel DockPanel.Dock="Top">
+              <Button Content="Обновить карту по результатам поиска" Click="RefreshLanMap_Click" HorizontalAlignment="Left"/>
+              <TextBlock Text="Пунктирные линии показывают только принадлежность к результатам поиска, НЕ реальные кабельные соединения. Для достоверной топологии потребуются LLDP/SNMP." TextWrapping="Wrap" Margin="0,6,0,8"/>
+            </StackPanel>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MinHeight="260">
+              <Canvas x:Name="LanMapCanvas" Width="900" Height="450" Background="#FF0B1420"/>
+            </ScrollViewer>
+          </DockPanel>
+        </TabItem>
+      </TabControl>
+    </StackPanel>
+   </TabItem>
+   <TabItem Header="USB / RS-485 адаптеры">
+    <StackPanel Margin="14">
+     <TextBlock Text="Обнаружение USB / RS-485 преобразователей" FontWeight="Bold" FontSize="17" Margin="0,0,0,8"/>
+     <TextBlock Text="Определение чипа по VID/PID приблизительное. Наличие COM-порта не гарантирует работоспособность RS-485 линии." TextWrapping="Wrap" Margin="0,0,0,10"/>
+     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+      <Button Content="Обновить USB-адаптеры" Click="RefreshUsbAdapters_Click" Padding="12,6" Margin="0,0,8,0"/>
+      <Button Content="Выбрать COM для RTU" Click="UseUsbAdapter_Click" Padding="12,6"/>
+      <Button Content="Экспорт диагностики USB" Click="ExportUsbDiagnostics_Click" Padding="12,6" Margin="8,0,0,0"/>
+     </StackPanel>
+     <DataGrid x:Name="UsbAdaptersGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" Height="230" CanUserAddRows="False">
+      <DataGrid.Columns>
+       <DataGridTextColumn Header="COM-порт" Binding="{Binding Port}" Width="95"/>
+       <DataGridTextColumn Header="Чип / семейство" Binding="{Binding Chip}" Width="*"/>
+       <DataGridTextColumn Header="VID / PID" Binding="{Binding HardwareId}" Width="170"/>
+       <DataGridTextColumn Header="Состояние драйвера" Binding="{Binding DriverState}" Width="240"/>
+      </DataGrid.Columns>
+     </DataGrid>
+     <TextBlock Text="Драйверы устанавливаются в Windows, а не внутри программы. При отсутствии COM-порта откройте Диспетчер устройств и установите официальный драйвер производителя. Программа не устанавливает драйверы автоматически." TextWrapping="Wrap" Margin="0,12,0,8"/>
+     <TextBlock Text="Официальные драйверы: FTDI — ftdichip.com/drivers/vcp-drivers; WCH — wch.cn/downloads; Silicon Labs — silabs.com; Prolific — prolific.com.tw. Проверяйте точную модель и версию Windows." TextWrapping="Wrap"/>
+    </StackPanel>
+   </TabItem>
+   <TabItem Header="Справка / О программе">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,10"><TextBlock Text="Язык / Language:" VerticalAlignment="Center" Margin="0,0,10,0"/><ComboBox x:Name="LanguageBox" Width="160" SelectionChanged="LanguageBox_SelectionChanged"><ComboBoxItem Content="Русский" Tag="ru"/><ComboBoxItem Content="English" Tag="en"/></ComboBox></StackPanel>
+      <TextBlock Text="Modbus Scanner — руководство" FontSize="20" FontWeight="Bold" Margin="0,0,0,12"/>
+      <TextBlock Text="Быстрый старт: для безопасной проверки без оборудования запустите TCP-симулятор, выберите TCP, Host 127.0.0.1, порт 1502, Unit ID 1, FC03, адрес 0 и количество 10. Нажмите «Подключить / проверить», затем «Читать диапазон». Запись в реальное оборудование не требуется." TextWrapping="Wrap" Foreground="#FF29E6D2" Margin="0,0,0,12"/>
+      <TextBlock Text="Симулятор: при остановке встроенного сервера подключение к 127.0.0.1:1502 сбрасывается, а статус связи становится неподтверждённым. После повторного запуска симулятора нажмите «Подключить / проверить», чтобы заново проверить соединение." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Индикатор связи: после ручного отключения или ошибки обмена статус становится «Нет подтверждённой связи». Это не обязательно означает неисправность устройства. Проверьте настройки и нажмите «Подключить / проверить» для нового теста." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Статус: серый означает выбор режима без подтверждённой связи, зелёный — успешное чтение, красный — ошибку чтения или отключение. Во время чтения программа запоминает исходный адрес и функцию, поэтому изменение полей до получения ответа не переносит результат на другой адрес." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="USB / RS-485: откройте вкладку адаптеров, нажмите обновление, выберите найденный COM-порт и кнопку «Выбрать COM для RTU». Программа определяет семейство чипа приблизительно по VID/PID; если COM не появился, проверьте Диспетчер устройств и официальный драйвер. Драйверы не устанавливаются автоматически. Проверка COM не определяет исправность проводов A/B, терминаторов или самого контроллера." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Диагностика USB: кнопка «Экспорт диагностики USB» сохраняет TXT с обнаруженными COM-портами, VID/PID, семействами чипов и выбранным режимом. Отчёт не содержит версии драйверов и не проверяет электрическую линию RS-485. Перед отправкой отчёта другим людям проверьте сведения о компьютере." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="1. Подключение: выберите Modbus RTU (COM, скорость, чётность, биты) либо TCP (IP и порт), задайте Unit ID. Нажмите «Подключить / проверить»." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="2. Регистры: выберите FC01/02 для битов, FC03/04 для 16-битных регистров, адрес и количество. Читайте диапазон, ищите доступные адреса, используйте интерпретацию чисел и порядок байтов." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Адресация Modbus: в программе используются адреса с нуля. Обозначение 40001 в документации обычно означает FC03, адрес 0; 40002 — адрес 1. Некоторые производители используют адреса с единицы, поэтому обязательно сверяйтесь с руководством устройства. Не вводите 40001 вместо 0 без проверки." TextWrapping="Wrap" Foreground="#FF29E6D2" Margin="0,0,0,10"/>
+      <TextBlock Text="3. Запись: доступна только при явном разрешении и подтверждении. FC05 — катушка, FC06 — один holding-регистр, FC16 — несколько регистров или 32-битное значение. Сверяйте повторное чтение." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Безопасность: перед записью остановите мониторинг, поиск регистров или IP-сканирование. Программа блокирует запись во время активного поиска или мониторинга. После записи проверьте значение повторным чтением; при несовпадении проверьте адрес, функцию, тип данных и документацию устройства." TextWrapping="Wrap" Foreground="#FF29E6D2" Margin="0,0,0,10"/>
+      <TextBlock Text="Если устройство не отвечает: проверьте IP/COM-порт, скорость, Unit ID и адрес регистра. Сообщение о слишком коротком ответе означает неполный кадр; повторите проверку связи, осмотрите кабель и настройки шлюза. При сбое обмена программа разрывает соединение, чтобы не использовать повреждённый поток данных." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="4. Карты регистров: импортируйте/экспортируйте JSON. Тип и признак Writable — справочные метаданные; они сами по себе не разрешают запись. Сохраняйте профили подключения." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="5. Поиск TCP проверяет Modbus на выбранных портах. IP-сканер ищет TCP-службы в ограниченном диапазоне IPv4 и показывает предполагаемый тип устройства. Для определения точной модели проверьте интерфейс устройства или документацию." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Карта сети: вкладка показывает обнаруженные TCP-узлы, а линии пока обозначают логическую группировку. Реальные соединения между портами коммутаторов не определяются без дополнительных данных (например, LLDP/SNMP). Нажмите на узел карты для переноса IP в Modbus TCP." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Диагностика сети — понятная последовательность:" FontSize="16" FontWeight="Bold" Margin="0,8,0,8"/>
+      <TextBlock Text="Шаг 1. Во вкладке «IP-сканер» выберите нужный сетевой адаптер (Wi-Fi или Ethernet). Если устройств несколько, проверьте, что выбран адаптер нужной сети. Нажмите обновление адаптеров при необходимости." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Шаг 2. Откройте «Диагностика сети». В поле «Адрес» введите IPv4 проверяемого устройства. Кнопка «Ping шлюза» сама подставит адрес шлюза выбранного адаптера. «Сравнить шлюз и узел» проверяет оба адреса последовательно." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Ping × 4: четыре ICMP-запроса с тайм-аутом 1 с. Получено 4/4 — устройство отвечает; потери 25% — один запрос не получил ответа. Устройство может блокировать ICMP и при этом работать по TCP." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Мониторинг × 20: двадцать запросов с паузами 1 с, статистика потерь и график. Зелёный — ответ до 100 мс, оранжевый — свыше 100 мс, красный — нет ответа. Высота столбца ограничена 500 мс. Это ориентиры, а не универсальные пороги аварии." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="TCP-порт: введите IPv4 и порт (обычно 502 для Modbus TCP), затем нажмите кнопку. Четыре подключения покажут доступность службы и время установки TCP-соединения. Это не проверка корректности регистров Modbus." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Проверить DNS: в поле «Адрес» можно ввести имя сайта или устройства. Программа покажет найденные адреса и время поиска. Если введён числовой IP, полноценная проверка разрешения имени не выполняется." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Трассировка: показывает до 20 промежуточных маршрутизаторов до адреса. Пропуск ответа или звёздочка не обязательно означает неисправность: ICMP может фильтроваться или ограничиваться." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Сравнить шлюз и узел: по пять Ping к шлюзу и конечному устройству. Если шлюз отвечает быстро, а устройство медленно, проверьте маршрут, нагрузку и само устройство. Измерения последовательные; по ним нельзя определить неисправный порт коммутатора." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="ARP-таблица: нажмите дважды с интервалом времени. Если для одного IP изменился MAC, появится предупреждение. Это лишь повод проверить DHCP, резервирование адресов и журналы роутера; ARP-кэш может быть неполным или устаревшим." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Остановить: отменяет текущую диагностику. Экспорт отчёта: сохраняет видимый текст результатов в TXT. Новая проверка заменяет прежний текст, поэтому нужный отчёт сохраните заранее." TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="Быстрый поиск причины: (1) Ping шлюза; (2) Ping устройства; (3) TCP-порт 502; (4) сравнение задержек; (5) при периодических сбоях — мониторинг × 20 и ARP; (6) сохраните отчёт. Если Ping не проходит, но TCP работает, это может быть фильтрация ICMP, а не обрыв связи." TextWrapping="Wrap" Foreground="#FF29E6D2" Margin="0,0,0,12"/>
+      <TextBlock Text="6. Симулятор: запустите локальный тестовый сервер, выберите TCP, адрес 127.0.0.1, порт 1502. Используйте его для безопасного тестирования команд без оборудования." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="7. Снимки, графики, журнал и автопоиск: фиксируйте значения, отслеживайте изменения, экспортируйте журнал и останавливайте длительное сканирование кнопкой остановки." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Проект: Modbus Scanner. Автор проекта: Blood Sky / skynet909084-boop. Платформа: Windows, .NET 8 WPF." FontWeight="Bold" TextWrapping="Wrap" Margin="0,12,0,0"/>
+      <TextBlock Text="Важно: не сканируйте чужие сети и не записывайте значения на работающем оборудовании без понимания последствий." TextWrapping="Wrap" Margin="0,12,0,0"/>
+    </StackPanel></ScrollViewer>
    </TabItem>
   </TabControl>
   <Border Grid.Row="3" Background="#FF202833" CornerRadius="8" Padding="8" Margin="0,8,0,0">
