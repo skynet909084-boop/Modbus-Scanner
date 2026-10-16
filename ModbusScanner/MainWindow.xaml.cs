@@ -239,6 +239,13 @@ public partial class MainWindow : Window
 
     private static readonly Dictionary<string, string> EnglishRuntimeMessages = new(StringComparer.Ordinal)
     {
+        ["Введите корректный IPv4-адрес для диагностики"]="Enter a valid IPv4 address for diagnostics",
+        ["Профиль сохранён: "]="Profile saved: ",
+        ["Профиль загружен: "]="Profile loaded: ",
+        ["Не удалось сохранить профиль: "]="Could not save profile: ",
+        ["Не удалось загрузить профиль: "]="Could not load profile: ",
+        ["COM-порты: "]="COM ports: ",
+        ["Автопоиск: "]="Auto discovery: ",
         ["Тестовый TCP симулятор остановлен."]="Test TCP simulator stopped.",
         ["Тестовый Modbus TCP сервер: 127.0.0.1:1502. Для подключения выберите TCP, Host 127.0.0.1, Port 1502."]=
             "Test Modbus TCP server: 127.0.0.1:1502. Select TCP, host 127.0.0.1 and port 1502 to connect.",
