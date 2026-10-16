@@ -854,7 +854,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             RecordExchange(timer.Elapsed.TotalMilliseconds, ex);
-            if (ex is not ModbusDeviceException) Disconnect();
+            if (ex is not ModbusDeviceException && ex is not InvalidOperationException && ex is not OperationCanceledException) Disconnect();
             throw;
         }
         finally { if(_scanCts==null)SetBusy(false); _operationGate.Release(); }
