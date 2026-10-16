@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Shapes;
+using Line = System.Windows.Shapes.Line;
 using Microsoft.Win32;
 using ModbusScanner.Models;
 
