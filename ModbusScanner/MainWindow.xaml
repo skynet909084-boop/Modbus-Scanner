@@ -304,6 +304,34 @@
      </StackPanel>
     </ScrollViewer>
    </TabItem>
+   <TabItem Header="IP-сканер">
+    <StackPanel Margin="12">
+      <TextBlock Text="Поиск устройств локальной сети" FontSize="18" FontWeight="Bold"/>
+      <TextBlock Text="Проверка доступности по TCP и обратного DNS. Тип устройства определяется предположительно по открытым портам, а не гарантированно. Используйте только в своей сети или с разрешения администратора." TextWrapping="Wrap" Margin="0,8,0,8"/>
+      <WrapPanel>
+        <TextBlock Text="От" VerticalAlignment="Center"/><TextBox x:Name="LanStartBox" Width="125" Text="192.168.1.1"/>
+        <TextBlock Text="До" VerticalAlignment="Center"/><TextBox x:Name="LanEndBox" Width="125" Text="192.168.1.254"/>
+        <TextBlock Text="Тайм-аут (мс)" VerticalAlignment="Center"/><TextBox x:Name="LanTimeoutBox" Width="70" Text="350"/>
+        <Button Content="Найти устройства" Click="ScanLan_Click"/><Button Content="Остановить" Click="StopScan_Click"/>
+      </WrapPanel>
+      <TextBlock Text="Проверяемые порты: 80, 443, 22, 23, 502, 8080, 554, 3389, 445, 9100. Отсутствие ответа не означает, что IP свободен." TextWrapping="Wrap" Margin="0,5,0,8"/>
+      <ListBox x:Name="LanResultsList" MinHeight="200" FontFamily="Consolas"/>
+    </StackPanel>
+   </TabItem>
+   <TabItem Header="Справка / О программе">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+      <TextBlock Text="Modbus Scanner — руководство" FontSize="20" FontWeight="Bold" Margin="0,0,0,12"/>
+      <TextBlock Text="1. Подключение: выберите Modbus RTU (COM, скорость, чётность, биты) либо TCP (IP и порт), задайте Unit ID. Нажмите «Подключить / проверить»." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="2. Регистры: выберите FC01/02 для битов, FC03/04 для 16-битных регистров, адрес и количество. Читайте диапазон, ищите доступные адреса, используйте интерпретацию чисел и порядок байтов." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="3. Запись: доступна только при явном разрешении и подтверждении. FC05 — катушка, FC06 — один holding-регистр, FC16 — несколько регистров или 32-битное значение. Сверяйте повторное чтение." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="4. Карты регистров: импортируйте/экспортируйте JSON. Тип и признак Writable — справочные метаданные; они сами по себе не разрешают запись. Сохраняйте профили подключения." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="5. Поиск TCP проверяет Modbus на выбранных портах. IP-сканер ищет TCP-службы в ограниченном диапазоне IPv4 и показывает предполагаемый тип устройства. Для определения точной модели проверьте интерфейс устройства или документацию." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="6. Симулятор: запустите локальный тестовый сервер, выберите TCP, адрес 127.0.0.1, порт 1502. Используйте его для безопасного тестирования команд без оборудования." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="7. Снимки, графики, журнал и автопоиск: фиксируйте значения, отслеживайте изменения, экспортируйте журнал и останавливайте длительное сканирование кнопкой остановки." TextWrapping="Wrap" Margin="0,0,0,10"/>
+      <TextBlock Text="Проект: Modbus Scanner. Автор проекта: Blood Sky / skynet909084-boop. Платформа: Windows, .NET 8 WPF." FontWeight="Bold" TextWrapping="Wrap" Margin="0,12,0,0"/>
+      <TextBlock Text="Важно: не сканируйте чужие сети и не записывайте значения на работающем оборудовании без понимания последствий." TextWrapping="Wrap" Margin="0,12,0,0"/>
+    </StackPanel></ScrollViewer>
+   </TabItem>
   </TabControl>
   <Border Grid.Row="3" Background="#FF202833" CornerRadius="8" Padding="8" Margin="0,8,0,0">
    <DockPanel>
