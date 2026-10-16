@@ -1330,14 +1330,14 @@ public partial class MainWindow : Window
             }
             var dialog = new SaveFileDialog
             {
-                Title = "Сохранить отчёт диагностики",
-                Filter = "Текстовый отчёт (*.txt)|*.txt",
+                Title = UiText("Сохранить отчёт диагностики", "Save diagnostic report"),
+                Filter = UiText("Текстовый отчёт (*.txt)|*.txt", "Text report (*.txt)|*.txt"),
                 FileName = "network-diagnostics.txt",
                 DefaultExt = ".txt"
             };
             if (dialog.ShowDialog() != true) return;
             File.WriteAllText(dialog.FileName,
-                $"Modbus Scanner — диагностика сети{Environment.NewLine}Дата: {DateTime.Now:yyyy-MM-dd HH:mm:ss}{Environment.NewLine}{Environment.NewLine}{DiagnosisOutputBox.Text}",
+                $"{UiText("Modbus Scanner — диагностика сети", "Modbus Scanner — network diagnostics")}{Environment.NewLine}{UiText("Дата", "Date")}: {DateTime.Now:yyyy-MM-dd HH:mm:ss}{Environment.NewLine}{Environment.NewLine}{DiagnosisOutputBox.Text}",
                 new UTF8Encoding(true));
             Log("Отчёт диагностики сохранён: " + dialog.FileName);
         }
