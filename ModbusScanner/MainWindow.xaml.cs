@@ -313,9 +313,22 @@ public partial class MainWindow : Window
         {
             StatusText.Text = "Нет подтверждённой связи";
             StatusText.Foreground = System.Windows.Media.Brushes.OrangeRed;
-            Log("Подключение/проверка: " + ex.Message);
+            Log("Подключение/проверка: " + ExplainConnectionError(ex));
             Disconnect();
         }
+    }
+
+    private static string ExplainConnectionError(Exception ex)
+    {
+        if (ex is TimeoutException || ex is OperationCanceledException)
+            return "Устройство не ответило вовремя. Проверьте IP/порт или COM, питание, Unit ID, параметры линии и доступность сети. Подробности: " + ex.Message;
+        if (ex is SocketException socket)
+            return "Не удалось установить TCP-соединение. Проверьте IP-адрес, порт, сеть и настройки брандмауэра. Подробности: " + socket.Message;
+        if (ex is UnauthorizedAccessException)
+            return "Нет доступа к COM-порту. Возможно, порт занят другой программой. Подробности: " + ex.Message;
+        if (ex is IOException)
+            return "Ошибка связи с устройством. Проверьте кабель, соединение и настройки порта. Подробности: " + ex.Message;
+        return ex.Message;
     }
 
     private async Task EnsureConnectedAsync(CancellationToken ct = default)
@@ -1177,6 +1190,12 @@ public partial class MainWindow : Window
     {
         _scanCts?.Cancel();
         Disconnect();
+        if (_simulator is not null)
+        {
+            // Stop the loopback listener and connected clients when the window closes.
+            _ = _simulator.DisposeAsync();
+            _simulator = null;
+        }
         base.OnClosed(e);
     }
 }
