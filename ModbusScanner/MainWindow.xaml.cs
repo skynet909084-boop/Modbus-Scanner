@@ -2222,4 +2222,13 @@ public partial class MainWindow : Window
         }
         base.OnClosed(e);
     }
+    // Compact top navigation keeps the connection controls visible on every page.
+    private void MainMenuNavigate_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.MenuItem item &&
+            int.TryParse(item.Tag?.ToString(), out int index) &&
+            index >= 0 && index < MainTabs.Items.Count)
+            MainTabs.SelectedIndex = index;
+    }
+
 }
