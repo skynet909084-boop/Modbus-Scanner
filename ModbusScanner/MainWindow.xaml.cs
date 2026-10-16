@@ -1030,6 +1030,86 @@ public partial class MainWindow : Window
         return ip;
     }
 
+    private readonly Dictionary<string, string> _previousArpEntries = new(StringComparer.OrdinalIgnoreCase);
+
+    private void ExportDiagnosis_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(DiagnosisOutputBox.Text))
+            {
+                Log("Отчёт диагностики пуст.");
+                return;
+            }
+            var dialog = new SaveFileDialog
+            {
+                Title = "Сохранить отчёт диагностики",
+                Filter = "Текстовый отчёт (*.txt)|*.txt",
+                FileName = "network-diagnostics.txt",
+                DefaultExt = ".txt"
+            };
+            if (dialog.ShowDialog() != true) return;
+            File.WriteAllText(dialog.FileName,
+                $"Modbus Scanner — диагностика сети{Environment.NewLine}Дата: {DateTime.Now:yyyy-MM-dd HH:mm:ss}{Environment.NewLine}{Environment.NewLine}{DiagnosisOutputBox.Text}",
+                new UTF8Encoding(true));
+            Log("Отчёт диагностики сохранён: " + dialog.FileName);
+        }
+        catch (Exception ex) { Log("Экспорт диагностики: " + ex.Message); }
+    }
+
+    private async void DiagnoseArp_Click(object sender, RoutedEventArgs e)
+    {
+        if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            _diagnosisCts = cts;
+            DiagnosisOutputBox.Clear();
+            AppendDiagnosis("ARP: сравнение текущей таблицы Windows с предыдущим снимком");
+            var start = new System.Diagnostics.ProcessStartInfo("arp.exe", "-a")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var process = System.Diagnostics.Process.Start(start)
+                ?? throw new InvalidOperationException("Не удалось запустить arp.exe");
+            string output = await process.StandardOutput.ReadToEndAsync(cts.Token);
+            await process.WaitForExitAsync(cts.Token);
+            if (process.ExitCode != 0) throw new InvalidOperationException("arp.exe вернул ошибку: " + process.ExitCode);
+            var current = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string line in output.Split('\n'))
+            {
+                var parts = line.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 3 || !IPAddress.TryParse(parts[0], out var ip) ||
+                    ip.AddressFamily != AddressFamily.InterNetwork) continue;
+                string mac = parts[1].ToLowerInvariant();
+                if (!System.Text.RegularExpressions.Regex.IsMatch(mac, @"^([0-9a-f]{2}-){5}[0-9a-f]{2}$")) continue;
+                current[ip.ToString()] = mac;
+            }
+            int changes = 0;
+            foreach (var entry in current.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                if (_previousArpEntries.TryGetValue(entry.Key, out string? oldMac) &&
+                    !string.Equals(oldMac, entry.Value, StringComparison.OrdinalIgnoreCase))
+                {
+                    changes++;
+                    AppendDiagnosis($"ВНИМАНИЕ: {entry.Key}: MAC изменился {oldMac} → {entry.Value}");
+                }
+                else AppendDiagnosis($"{entry.Key,-16} {entry.Value}");
+            }
+            _previousArpEntries.Clear();
+            foreach (var entry in current) _previousArpEntries[entry.Key] = entry.Value;
+            AppendDiagnosis($"ARP-записей: {current.Count}; изменений MAC: {changes}");
+            AppendDiagnosis("Смена MAC может быть штатной (DHCP, VRRP, смена устройства). Это только подозрение, не доказательство конфликта IP.");
+            AppendDiagnosis("ARP-кэш неполон: отсутствие записи не означает отсутствие устройства.");
+        }
+        catch (OperationCanceledException) { AppendDiagnosis("ARP-проверка остановлена или истёк тайм-аут."); }
+        catch (Exception ex) { AppendDiagnosis("Ошибка ARP: " + ex.Message); }
+        finally { _diagnosisCts = null; }
+    }
+
     private async void DiagnoseDns_Click(object sender, RoutedEventArgs e)
     {
         if (_diagnosisCts != null) { Log("Диагностика уже выполняется."); return; }
