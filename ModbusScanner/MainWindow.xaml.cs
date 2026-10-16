@@ -904,6 +904,8 @@ public partial class MainWindow : Window
         return result;
     }
 
+    private sealed class WriteBlockedException(string message) : InvalidOperationException(message);
+
     private async Task<byte[]> ExchangeAsync(byte[] pdu, byte function, CancellationToken ct)
     {
         await _operationGate.WaitAsync(ct);
@@ -913,7 +915,7 @@ public partial class MainWindow : Window
         {
             // Recheck inside the serialized exchange: a scan may start while a write waits for the gate.
             if (function is 5 or 6 or 16 && _scanCts is not null)
-                throw new InvalidOperationException(UiText("Остановите мониторинг или поиск перед записью в устройство.", "Stop monitoring or scanning before writing to the device."));
+                throw new WriteBlockedException(UiText("Остановите мониторинг или поиск перед записью в устройство.", "Stop monitoring or scanning before writing to the device."));
             LogFrame("TX PDU", pdu);
             var result = await ExchangeCoreAsync(pdu, function, ct);
             LogFrame("RX ADU (RTU) / Unit+PDU (TCP)", result);
@@ -931,7 +933,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             RecordExchange(timer.Elapsed.TotalMilliseconds, ex);
-            if (ex is not ModbusDeviceException && ex is not InvalidOperationException)
+            if (ex is not ModbusDeviceException && ex is not WriteBlockedException)
             {
                 Disconnect();
                 if (_scanCts is null)
